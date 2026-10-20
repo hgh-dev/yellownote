@@ -1,4 +1,38 @@
 import { test, expect } from "@playwright/test";
+test("한 줄 제목과 화면 너비에 따른 행 배치", async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "새 할 일 추가" }).click();
+  const row = page.getByTestId("task-row");
+  const title = row.getByLabel("할 일 제목", { exact: true });
+  await expect(title).toHaveAttribute("type", "text");
+  await title.fill("한 줄 업무");
+  await title.press("Enter");
+  await expect(title).not.toBeFocused();
+  await expect(title).toHaveValue("한 줄 업무");
+  const position = async () =>
+    row.evaluate((element) => {
+      const box = (selector: string) =>
+        element.querySelector(selector)!.getBoundingClientRect();
+      return {
+        title: box(".task-title").top,
+        due: box(".date-control").top,
+        priority: box(".priority").top,
+        memo: box(".memo-toggle").left,
+        pin: box(".pin").left,
+      };
+    });
+  let bounds = await position();
+  expect(bounds.due).toBe(bounds.title);
+  expect(bounds.priority).toBe(bounds.title);
+  expect(bounds.memo).toBeLessThan(bounds.pin);
+  expect(await page.locator(".app-header").evaluate((element) => element.getBoundingClientRect().left)).toBe(0);
+  await page.setViewportSize({ width: 393, height: 852 });
+  bounds = await position();
+  expect(bounds.due).toBeGreaterThan(bounds.title);
+  expect(bounds.priority).toBeGreaterThan(bounds.title);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
 test("할 일 편집, 메모, 핀, 완료 숨김, 재접속, 삭제", async ({ page }) => {
   await page.goto("/");
   await page

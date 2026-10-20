@@ -99,7 +99,7 @@ select {
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: 88px 44px;
   align-items: center;
-  padding: 0 clamp(20px, 5vw, 72px) 0 calc(var(--margin) + 27px);
+  padding: 0 clamp(20px, 5vw, 72px);
   background: var(--paper);
   border-bottom: 1px solid var(--rule);
   position: relative;
@@ -227,7 +227,7 @@ select {
 }
 .task-row {
   position: relative;
-  min-height: 88px;
+  min-height: 44px;
   transition: background 0.15s;
 }
 .task-row:hover {
@@ -235,7 +235,7 @@ select {
 }
 .task-main {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   position: relative;
   min-height: 44px;
 }
@@ -299,9 +299,8 @@ select {
   display: block;
   flex: 1;
   min-width: 0;
+  height: 44px;
   border: 0;
-  resize: none;
-  overflow: hidden;
   background: transparent;
   padding: 0 8px 0 0;
   line-height: 44px;
@@ -319,6 +318,7 @@ select {
 }
 .row-actions {
   display: flex;
+  flex-shrink: 0;
 }
 .pin.active {
   color: #9e703c;
@@ -343,8 +343,9 @@ select {
   min-height: 44px;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  padding-left: 33px;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  padding-left: 0;
   gap: 0 9px;
   color: #938157;
   font-size: 11px;
@@ -410,13 +411,7 @@ select {
   color: #597d49;
 }
 .memo-toggle {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-  height: 44px;
-  font-size: 11px;
   color: #9a895d;
-  padding: 0 5px;
 }
 .memo-toggle.has-memo {
   color: #766c46;
@@ -726,6 +721,21 @@ textarea {
     padding-right: max(72px, calc(100vw - 1240px));
   }
 }
+@media (max-width: 900px) {
+  .task-main {
+    flex-wrap: wrap;
+  }
+  .task-details {
+    order: 4;
+    flex-basis: 100%;
+    min-width: 0;
+    padding-left: 33px;
+    flex-wrap: wrap;
+  }
+  .row-actions {
+    order: 3;
+  }
+}
 @media (max-width: 700px) {
   :root {
     --margin: 38px;
@@ -798,11 +808,6 @@ textarea {
     max-width: 65px;
     padding: 0;
   }
-  .memo-toggle {
-    font-size: 10px;
-    gap: 4px;
-    padding: 0 2px;
-  }
   .d-day {
     font-size: 9px;
   }
@@ -866,9 +871,6 @@ textarea {
   .task-details {
     gap: 0 4px;
   }
-  .memo-toggle span {
-    font-size: 9px;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -879,8 +881,7 @@ textarea {
     scroll-behavior: auto !important;
   }
 }
-/* Keep writing baselines just above the paper rules, including wrapped lines. */
-.task-title,
+/* Keep memo writing baselines just above the paper rules. */
 .memo-area textarea {
   position: relative;
   top: 8px;

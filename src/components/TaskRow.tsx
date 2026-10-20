@@ -30,7 +30,7 @@ export function TaskRow({
   onDelete: () => void;
 }) {
   const [memoOpen, setMemoOpen] = useState(false);
-  const title = useRef<HTMLTextAreaElement>(null),
+  const title = useRef<HTMLInputElement>(null),
     memo = useRef<HTMLTextAreaElement>(null);
   const {
     attributes,
@@ -43,19 +43,8 @@ export function TaskRow({
     isOver,
   } = useSortable({ id: task.id });
   useLayoutEffect(() => {
-    resize(title.current);
-  }, [task.title]);
-  useLayoutEffect(() => {
     resize(memo.current);
   }, [task.memo, memoOpen]);
-  useLayoutEffect(() => {
-    const observer = new ResizeObserver(() => {
-      resize(title.current);
-      resize(memo.current);
-    });
-    if (title.current) observer.observe(title.current);
-    return () => observer.disconnect();
-  }, []);
   useLayoutEffect(() => {
     if (autoFocus) {
       title.current?.focus();
@@ -109,15 +98,21 @@ export function TaskRow({
           />
           <span>{task.completed && <Check size={16} strokeWidth={2.2} />}</span>
         </label>
-        <textarea
+        <input
           ref={title}
+          type="text"
           className="task-title"
-          rows={1}
           aria-label="할 일 제목"
           spellCheck={false}
           placeholder="새로운 할 일을 적어 보세요"
-          value={task.title}
+          value={task.title.replace(/[\r\n]+/g, " ")}
           onChange={(e) => updateTask(task.id, { title: e.target.value })}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              e.currentTarget.blur();
+            }
+          }}
           onBlur={() => {
             void flush().catch(() => {});
           }}
@@ -131,7 +126,67 @@ export function TaskRow({
             );
           }}
         />
+        <div className="task-details">
+          <label className="date-control">
+            <span className="sr-only">기한</span>
+            <input
+              type="date"
+              aria-label="기한"
+              min="1000-01-01"
+              max="9999-12-31"
+              value={task.dueDate || ""}
+              onChange={(e) => {
+                if (!e.target.value || validDate(e.target.value))
+                  updateTask(task.id, { dueDate: e.target.value || null }, true);
+              }}
+            />
+          </label>
+          {task.dueDate && (
+            <>
+              <span
+                className={`d-day ${!task.completed && dayDifference(task.dueDate, today) < 0 ? "overdue" : ""}`}
+              >
+                {dDay(task.dueDate, today)}
+              </span>
+              <button
+                className="clear-date"
+                aria-label="기한 지우기"
+                onClick={() => updateTask(task.id, { dueDate: null }, true)}
+              >
+                ×
+              </button>
+            </>
+          )}
+          <span className="detail-divider" />
+          <select
+            className={`priority ${task.priority || ""}`}
+            aria-label="우선순위"
+            value={task.priority || ""}
+            onChange={(e) =>
+              updateTask(
+                task.id,
+                { priority: (e.target.value || null) as Priority },
+                true,
+              )
+            }
+          >
+            <option value="">우선순위</option>
+            <option value="high">상</option>
+            <option value="medium">중</option>
+            <option value="low">하</option>
+          </select>
+        </div>
         <div className="row-actions">
+          <button
+            className={`icon-button memo-toggle ${task.memo ? "has-memo" : ""}`}
+            aria-label={memoOpen ? "접기" : task.memo ? "메모" : "메모 추가"}
+            title={memoOpen ? "메모 접기" : "메모 열기"}
+            aria-expanded={memoOpen}
+            aria-controls={`memo-${task.id}`}
+            onClick={() => setMemoOpen(!memoOpen)}
+          >
+            {memoOpen ? <ChevronUp size={17} /> : <MessageSquare size={17} />}
+          </button>
           <button
             className={`icon-button pin ${task.pinned ? "active" : ""}`}
             aria-label={`${label} ${task.pinned ? "고정 해제" : "상단 고정"}`}
@@ -148,65 +203,6 @@ export function TaskRow({
             <Trash2 size={17} />
           </button>
         </div>
-      </div>
-      <div className="task-details">
-        <label className="date-control">
-          <span className="sr-only">기한</span>
-          <input
-            type="date"
-            aria-label="기한"
-            min="1000-01-01"
-            max="9999-12-31"
-            value={task.dueDate || ""}
-            onChange={(e) => {
-              if (!e.target.value || validDate(e.target.value))
-                updateTask(task.id, { dueDate: e.target.value || null }, true);
-            }}
-          />
-        </label>
-        {task.dueDate && (
-          <>
-            <span
-              className={`d-day ${!task.completed && dayDifference(task.dueDate, today) < 0 ? "overdue" : ""}`}
-            >
-              {dDay(task.dueDate, today)}
-            </span>
-            <button
-              className="clear-date"
-              aria-label="기한 지우기"
-              onClick={() => updateTask(task.id, { dueDate: null }, true)}
-            >
-              ×
-            </button>
-          </>
-        )}
-        <span className="detail-divider" />
-        <select
-          className={`priority ${task.priority || ""}`}
-          aria-label="우선순위"
-          value={task.priority || ""}
-          onChange={(e) =>
-            updateTask(
-              task.id,
-              { priority: (e.target.value || null) as Priority },
-              true,
-            )
-          }
-        >
-          <option value="">우선순위</option>
-          <option value="high">상</option>
-          <option value="medium">중</option>
-          <option value="low">하</option>
-        </select>
-        <button
-          className={`memo-toggle ${task.memo ? "has-memo" : ""}`}
-          aria-expanded={memoOpen}
-          aria-controls={`memo-${task.id}`}
-          onClick={() => setMemoOpen(!memoOpen)}
-        >
-          {memoOpen ? <ChevronUp size={15} /> : <MessageSquare size={15} />}
-          <span>{memoOpen ? "접기" : task.memo ? "메모" : "메모 추가"}</span>
-        </button>
       </div>
       {memoOpen && (
         <div className="memo-area" id={`memo-${task.id}`}>
