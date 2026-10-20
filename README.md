@@ -63,6 +63,10 @@ npm run preview
 
 GitHub Pages는 HTML·CSS·JavaScript 정적 파일을 인터넷에 공개해 주는 서비스입니다. 노트 내용은 GitHub에 올라가지 않고 각 사용자의 브라우저에 저장됩니다.
 
+**현재 공개 주소: [Yellow Note 열기](https://hgh-dev.github.io/yellownote/)**. `hgh-dev/yellownote` 저장소의 `main`에 올리면 GitHub Actions가 자동으로 다시 배포합니다. 아래 단계는 다른 저장소에 처음 설치할 때 참고하세요.
+
+로컬 미리보기(`127.0.0.1:5173`)에 적어 둔 기록은 공개 주소에 자동으로 옮겨지지 않습니다. 로컬 미리보기에서 **설정 → 내보내기**로 JSON을 받은 다음, 공개 주소에서 **설정 → 가져오기**로 복원하세요. 주소마다 브라우저 저장소가 따로 있습니다.
+
 1. GitHub에 로그인하고 **New repository**를 눌러 `yellownote` 저장소를 만드세요. 무료 개인 계정에서는 공개(Public) 저장소를 사용하면 편리합니다.
 2. GitHub Desktop에서 **Add Local Repository**를 선택합니다. 이 폴더가 Git 저장소가 아니라고 나오면 **create a repository here**로 이 프로젝트 폴더에 저장소를 만드세요. 또는 터미널에서 다음을 실행합니다.
 
