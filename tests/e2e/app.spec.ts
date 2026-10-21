@@ -256,7 +256,7 @@ test("모든 정렬의 핀 우선, 키보드 드래그 저장, 기한 삭제", a
   ).toHaveValue("다음");
   await page.getByLabel("기한", { exact: true }).first().fill("2026-01-01");
   await expect(page.locator(".d-day").first()).toContainText("D+");
-  await page.getByRole("button", { name: "기한 지우기", exact: true }).click();
+  await page.getByLabel("기한", { exact: true }).first().fill("");
   await expect(page.getByLabel("기한", { exact: true }).first()).toHaveValue(
     "",
   );

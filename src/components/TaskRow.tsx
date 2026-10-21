@@ -183,13 +183,6 @@ export function TaskRow({
               >
                 {dDay(task.dueDate, today)}
               </span>
-              <button
-                className="clear-date"
-                aria-label="기한 지우기"
-                onClick={() => updateTask(task.id, { dueDate: null }, true)}
-              >
-                ×
-              </button>
             </>
           )}
           </div>
