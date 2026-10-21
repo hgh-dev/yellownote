@@ -450,7 +450,10 @@ select {
   cursor: pointer;
 }
 .priority-display { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; white-space: nowrap; }
-.priority-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.priority-dot { width: 8px; height: 8px; border-radius: 50%; }
+.priority-control.high .priority-dot { background: #e53935; }
+.priority-control.medium .priority-dot { background: #f57c00; }
+.priority-control.low .priority-dot { background: #2e9d32; }
 .priority-control.high {
   color: #b84e3a;
 }
