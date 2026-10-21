@@ -152,13 +152,25 @@ select {
 .header-meta {
   grid-column: 1 / -1;
   grid-row: 2;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   height: 44px;
   color: #82764e;
   font-size: 12px;
+}
+.header-meta time { white-space: nowrap; text-align: center; }
+.task-counts { white-space: nowrap; }
+.task-counts b { margin-left: 6px; font-weight: 500; }
+.current-sort {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 44px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 .toolbar-button {
   min-height: 44px;
@@ -183,47 +195,13 @@ select {
   margin-left: calc(var(--margin) + 14px);
   margin-right: 12px;
 }
-.list-summary {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 13px;
-  gap: 8px;
-}
-.list-summary > span,
-.list-summary > button {
-  transform: translateY(-3px);
-}
-.list-summary b {
-  font-size: 12px;
-  margin-left: 8px;
-  font-weight: 500;
-}
 .completed-count {
   font-size: 11px;
   color: #8b8058;
-  margin-left: 18px;
-}
-.list-summary > button {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 44px;
-  font-size: 11px;
-  color: #847854;
+  margin-left: 14px;
 }
 .task-group {
   padding: 0;
-}
-.group-caption {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: #9b7844;
-  letter-spacing: 0.3px;
 }
 .task-row {
   position: relative;
@@ -951,4 +929,24 @@ textarea {
 }
 @media (max-width: 380px) {
   .task-title-measure { font-size: 15px; }
+}
+
+.paper-footer p { margin: 0; line-height: 22px; }
+.paper-footer .save-state {
+  justify-content: flex-end;
+  line-height: 22px;
+  letter-spacing: 0;
+}
+@media (max-width: 520px) {
+  .app-header { grid-template-rows: 88px 88px; min-height: 176px; }
+  .header-meta {
+    height: 88px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: 44px 44px;
+    gap: 0 8px;
+  }
+  .header-meta time { grid-column: 1 / -1; grid-row: 1; }
+  .task-counts { grid-column: 1; grid-row: 2; }
+  .current-sort { grid-column: 2; grid-row: 2; font-size: 10px; }
+  .task-counts .completed-count { display: inline; }
 }

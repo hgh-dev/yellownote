@@ -4,7 +4,6 @@ import {
   Settings as SettingsIcon,
   Plus,
   Check,
-  Pin,
   BookOpen,
   CloudOff,
 } from "lucide-react";
@@ -225,26 +224,16 @@ export default function App() {
           </button>
         </nav>
         <div className="header-meta">
-          <time dateTime={today}>{dateText}</time>
-          <span className="save-state" role="status">
-            {offline ? (
-              <>
-                <CloudOff size={13} />
-                오프라인
-              </>
-            ) : error ? (
-              "저장 확인 필요"
-            ) : saving ? (
-              "저장 중…"
-            ) : ready ? (
-              <>
-                <Check size={13} />
-                자동 저장됨
-              </>
-            ) : (
-              "노트를 여는 중…"
-            )}
+          <span className="task-counts">
+            나의 할 일 <b>{tasks.filter((t) => !t.completed).length}</b>
+            <span className="completed-count">완료 {completed}</span>
           </span>
+          <time dateTime={today}>{dateText}</time>
+          <button className="current-sort" onClick={() => setPanel("sort")} disabled={!ready}>
+            {sortLabel(settings)}
+            <ArrowDownUp size={13} />
+          </button>
+
         </div>
       </header>
       <main inert={updating}>
@@ -254,16 +243,7 @@ export default function App() {
           aria-busy={!ready || updating}
         >
           <h1 className="sr-only">나의 할 일</h1>
-          <div className="list-summary">
-            <span>
-              나의 할 일 <b>{tasks.filter((t) => !t.completed).length}</b>
-              <span className="completed-count">완료 {completed}</span>
-            </span>
-            <button onClick={() => setPanel("sort")} disabled={!ready}>
-              {sortLabel(settings)}
-              <ArrowDownUp size={13} />
-            </button>
-          </div>
+
           {error && (
             <div className="error-banner" role="alert">
               {error}
@@ -285,17 +265,11 @@ export default function App() {
           >
             {!!pinned.length && (
               <div className="task-group">
-                <div className="group-caption">
-                  <Pin size={12} /> 고정한 할 일
-                </div>
                 {group(pinned)}
               </div>
             )}
             {!!normal.length && (
               <div className="task-group">
-                {!!pinned.length && (
-                  <div className="group-caption">나머지 할 일</div>
-                )}
                 {group(normal)}
               </div>
             )}
@@ -319,7 +293,28 @@ export default function App() {
             </div>
           )}
         </section>
-        <p className="paper-footer">작은 기록이 만드는 가벼운 하루</p>
+        <footer className="paper-footer">
+          <p>작은 기록이 만드는 가벼운 하루</p>
+          <span className="save-state" role="status">
+            {offline ? (
+              <>
+                <CloudOff size={13} />
+                오프라인
+              </>
+            ) : error ? (
+              "저장 확인 필요"
+            ) : saving ? (
+              "저장 중…"
+            ) : ready ? (
+              <>
+                <Check size={13} />
+                자동 저장됨
+              </>
+            ) : (
+              "노트를 여는 중…"
+            )}
+          </span>
+        </footer>
       </main>
       <div className="floating-add">
         <button
