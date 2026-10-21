@@ -16,22 +16,42 @@ test("한 줄 제목과 화면 너비에 따른 행 배치", async ({ page }) =>
         element.querySelector(selector)!.getBoundingClientRect();
       return {
         title: box(".task-title").top,
+        titleRight: box(".task-title").right,
         due: box(".date-control").top,
         priority: box(".priority").top,
         memo: box(".memo-toggle").left,
-        pin: box(".pin").left,
+        checkbox: box(".task-checkbox span").right,
+        handle: box(".drag-handle").right,
+        margin: Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--margin")),
       };
     });
   let bounds = await position();
   expect(bounds.due).toBe(bounds.title);
   expect(bounds.priority).toBe(bounds.title);
-  expect(bounds.memo).toBeLessThan(bounds.pin);
+  expect(bounds.memo - bounds.titleRight).toBeLessThan(2);
+  expect(bounds.checkbox).toBeLessThan(bounds.margin);
+  expect(bounds.handle).toBeLessThan(bounds.checkbox);
   expect(await page.locator(".app-header").evaluate((element) => element.getBoundingClientRect().left)).toBe(0);
   await page.setViewportSize({ width: 393, height: 852 });
   bounds = await position();
   expect(bounds.due).toBeGreaterThan(bounds.title);
   expect(bounds.priority).toBeGreaterThan(bounds.title);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+test("PC에서 Enter로 새 줄을 만들고 제목 Enter는 편집을 마친다", async ({ page }) => {
+  await page.goto("/");
+  await page.keyboard.press("Enter");
+  const titles = page.getByLabel("할 일 제목", { exact: true });
+  await expect(titles).toHaveCount(1);
+  await expect(titles.first()).toBeFocused();
+  await titles.first().fill("첫 번째 할 일");
+  await titles.first().press("Enter");
+  await expect(titles).toHaveCount(1);
+  await expect(titles.first()).not.toBeFocused();
+  await page.waitForTimeout(510);
+  await page.keyboard.press("Enter");
+  await expect(titles).toHaveCount(2);
+  await expect(titles.last()).toBeFocused();
 });
 test("할 일 편집, 메모, 핀, 완료 숨김, 재접속, 삭제", async ({ page }) => {
   await page.goto("/");
@@ -47,6 +67,9 @@ test("할 일 편집, 메모, 핀, 완료 숨김, 재접속, 삭제", async ({ p
   await page
     .getByLabel("진행상황 메모")
     .fill("10월 20일: 접수\n10월 21일: 현장 확인");
+  await page
+    .getByRole("button", { name: "산림사업 설계서 검토 더보기" })
+    .click();
   await page
     .getByRole("button", {
       name: "산림사업 설계서 검토 상단 고정",
@@ -80,10 +103,16 @@ test("할 일 편집, 메모, 핀, 완료 숨김, 재접속, 삭제", async ({ p
     "10월 20일: 접수\n10월 21일: 현장 확인",
   );
   await page
+    .getByRole("button", { name: "산림사업 설계서 검토 더보기" })
+    .click();
+  await page
     .getByRole("button", { name: "산림사업 설계서 검토 삭제", exact: true })
     .click();
   await page.getByRole("button", { name: "취소", exact: true }).click();
   await expect(title).toBeVisible();
+  await page
+    .getByRole("button", { name: "산림사업 설계서 검토 더보기" })
+    .click();
   await page
     .getByRole("button", { name: "산림사업 설계서 검토 삭제", exact: true })
     .click();
@@ -179,6 +208,9 @@ test("모든 정렬의 핀 우선, 키보드 드래그 저장, 기한 삭제", a
       .fill(name);
     await page.waitForTimeout(510);
   }
+  await page
+    .getByRole("button", { name: "중요 더보기" })
+    .click();
   await page
     .getByRole("button", { name: "중요 상단 고정", exact: true })
     .click();
@@ -293,6 +325,9 @@ test("마우스 드래그 및 320·768·1440px 화면 검증", async ({
     page.getByLabel("할 일 제목", { exact: true }).first(),
   ).toHaveValue("현장 확인 일정 정리");
   await page.waitForTimeout(100);
+  await page
+    .getByRole("button", { name: "산림사업 설계서 검토 더보기" })
+    .click();
   await page
     .getByRole("button", {
       name: "산림사업 설계서 검토 상단 고정",

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import {
   GripVertical,
   Pin,
@@ -6,6 +6,7 @@ import {
   MessageSquare,
   ChevronUp,
   Check,
+  MoreHorizontal,
 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -30,8 +31,25 @@ export function TaskRow({
   onDelete: () => void;
 }) {
   const [memoOpen, setMemoOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const title = useRef<HTMLInputElement>(null),
-    memo = useRef<HTMLTextAreaElement>(null);
+    memo = useRef<HTMLTextAreaElement>(null),
+    menu = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (event: PointerEvent) => {
+      if (!menu.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [menuOpen]);
   const {
     attributes,
     listeners,
@@ -98,6 +116,10 @@ export function TaskRow({
           />
           <span>{task.completed && <Check size={16} strokeWidth={2.2} />}</span>
         </label>
+        <div className="task-title-group">
+        <span className="task-title-measure" aria-hidden="true">
+          {task.title || "새로운 할 일을 적어 보세요"}
+        </span>
         <input
           ref={title}
           type="text"
@@ -126,6 +148,17 @@ export function TaskRow({
             );
           }}
         />
+        <button
+          className={`icon-button memo-toggle ${task.memo ? "has-memo" : ""}`}
+          aria-label={memoOpen ? "접기" : task.memo ? "메모" : "메모 추가"}
+          title={memoOpen ? "메모 접기" : "메모 열기"}
+          aria-expanded={memoOpen}
+          aria-controls={`memo-${task.id}`}
+          onClick={() => setMemoOpen(!memoOpen)}
+        >
+          {memoOpen ? <ChevronUp size={17} /> : <MessageSquare size={17} />}
+        </button>
+        </div>
         <div className="task-details">
           <label className="date-control">
             <span className="sr-only">기한</span>
@@ -176,32 +209,40 @@ export function TaskRow({
             <option value="low">하</option>
           </select>
         </div>
-        <div className="row-actions">
+        <div className="row-actions" ref={menu}>
           <button
-            className={`icon-button memo-toggle ${task.memo ? "has-memo" : ""}`}
-            aria-label={memoOpen ? "접기" : task.memo ? "메모" : "메모 추가"}
-            title={memoOpen ? "메모 접기" : "메모 열기"}
-            aria-expanded={memoOpen}
-            aria-controls={`memo-${task.id}`}
-            onClick={() => setMemoOpen(!memoOpen)}
+            className="icon-button more-toggle"
+            aria-label={`${label} 더보기`}
+            aria-expanded={menuOpen}
+            aria-controls={`actions-${task.id}`}
+            onClick={() => setMenuOpen(!menuOpen)}
           >
-            {memoOpen ? <ChevronUp size={17} /> : <MessageSquare size={17} />}
+            <MoreHorizontal size={20} />
           </button>
+          {menuOpen && <div className="row-menu" id={`actions-${task.id}`}>
           <button
-            className={`icon-button pin ${task.pinned ? "active" : ""}`}
+            className={`menu-action pin ${task.pinned ? "active" : ""}`}
             aria-label={`${label} ${task.pinned ? "고정 해제" : "상단 고정"}`}
-            aria-pressed={task.pinned}
-            onClick={() => updateTask(task.id, { pinned: !task.pinned }, true)}
+            onClick={() => {
+              updateTask(task.id, { pinned: !task.pinned }, true);
+              setMenuOpen(false);
+            }}
           >
-            <Pin size={18} fill={task.pinned ? "currentColor" : "none"} />
+            <Pin size={17} fill={task.pinned ? "currentColor" : "none"} />
+            {task.pinned ? "고정 해제" : "상단 고정"}
           </button>
           <button
-            className="icon-button delete"
+            className="menu-action delete"
             aria-label={`${label} 삭제`}
-            onClick={onDelete}
+            onClick={() => {
+              setMenuOpen(false);
+              onDelete();
+            }}
           >
             <Trash2 size={17} />
+            삭제
           </button>
+          </div>}
         </div>
       </div>
       {memoOpen && (

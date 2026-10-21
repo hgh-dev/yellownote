@@ -133,6 +133,29 @@ export default function App() {
     setFocusId(task.id);
     addTask(task);
   }
+  useEffect(() => {
+    const onEnter = (event: KeyboardEvent) => {
+      if (
+        event.key !== "Enter" ||
+        event.isComposing ||
+        !window.matchMedia("(pointer: fine)").matches ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      ) return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          target.closest("input, textarea, select, button, a, [role='button'], [role='dialog']"))
+      ) return;
+      event.preventDefault();
+      add();
+    };
+    document.addEventListener("keydown", onEnter);
+    return () => document.removeEventListener("keydown", onEnter);
+  });
   async function update() {
     setUpdating(true);
     try {
