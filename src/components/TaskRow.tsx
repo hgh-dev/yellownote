@@ -118,11 +118,12 @@ export function TaskRow({
         </label>
         <div className="task-title-group">
         <span className="task-title-measure" aria-hidden="true">
-          {task.title || "새로운 할 일을 적어 보세요"}
+          {task.title.replace(/[\r\n]+/g, " ") || "새로운 할 일을 적어 보세요"}
         </span>
         <input
           ref={title}
           type="text"
+          size={1}
           className="task-title"
           aria-label="할 일 제목"
           spellCheck={false}
@@ -160,6 +161,7 @@ export function TaskRow({
         </button>
         </div>
         <div className="task-details">
+          <div className={`date-stack ${task.dueDate ? "has-date" : ""}`}>
           <label className="date-control">
             <span className="sr-only">기한</span>
             <input
@@ -190,6 +192,7 @@ export function TaskRow({
               </button>
             </>
           )}
+          </div>
           <span className="detail-divider" />
           <select
             className={`priority ${task.priority || ""}`}
