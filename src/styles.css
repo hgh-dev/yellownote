@@ -385,22 +385,36 @@ select {
   display: flex;
   align-items: center;
   height: 44px;
+  width: 88px;
+  position: relative;
+  justify-content: flex-end;
+  cursor: pointer;
 }
 .date-control input {
-  max-width: 116px;
-  min-width: 0;
-  font-size: 11px;
-  border: 0;
-  background: none;
-  height: 40px;
-  color: #83744f;
-  padding: 0;
-}
-.date-control input::-webkit-calendar-picker-indicator {
-  opacity: 0.5;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
   cursor: pointer;
-  padding: 8px 0 8px 2px;
-  margin: 0;
+}
+.date-control:focus-within,
+.priority-control:focus-within {
+  outline: 2px solid #81713b;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+.date-display {
+  font-size: 11px;
+  white-space: nowrap;
+  text-align: right;
+  color: #83744f;
+}
+.date-icon {
+  position: absolute;
+  right: 0;
+  top: 15px;
+  color: #938157;
 }
 .d-day {
   font-size: 10px;
@@ -417,22 +431,33 @@ select {
   margin: 0 2px;
 }
 .priority {
-  font-size: 11px;
-  border: 0;
-  background: transparent;
-  max-width: 82px;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.priority-control {
+  width: 68px;
   height: 44px;
-  padding: 0 3px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 3px;
+  position: relative;
   color: #96855b;
   cursor: pointer;
 }
-.priority.high {
+.priority-display { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; white-space: nowrap; }
+.priority-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.priority-control.high {
   color: #b84e3a;
 }
-.priority.medium {
+.priority-control.medium {
   color: #b37726;
 }
-.priority.low {
+.priority-control.low {
   color: #597d49;
 }
 .memo-toggle {
@@ -822,15 +847,8 @@ textarea {
     padding-left: 0;
     gap: 0 5px;
   }
-  .date-control input {
-    font-size: 10px;
-    width: 104px;
-  }
-  .priority {
-    font-size: 10px;
-    max-width: 65px;
-    padding: 0;
-  }
+  .date-display,
+  .priority-display { font-size: 10px; }
   .d-day {
     font-size: 9px;
   }
@@ -917,13 +935,13 @@ textarea {
   min-height: 44px;
 }
 .date-stack .date-control { grid-column: 1; grid-row: 1; }
-.date-control input { width: 88px; max-width: 88px; }
-.date-control input::-webkit-datetime-edit { padding: 0; }
+.date-display { padding-right: 19px; }
 .date-stack.has-date { grid-template-rows: 26px 18px; }
-.date-stack.has-date .date-control,
-.date-stack.has-date .date-control input { height: 26px; }
+.date-stack.has-date .date-control { height: 44px; grid-row: 1 / 3; }
+.date-stack.has-date .date-display { align-self: flex-start; padding-top: 7px; }
 .date-stack .d-day { grid-column: 1; grid-row: 2; align-self: start; }
-.priority { width: 65px; padding: 0; }
+.date-stack .d-day { text-align: right; padding-right: 19px; }
+.date-stack .d-day { pointer-events: none; }
 @media (max-width: 520px) {
   .task-details { padding-left: 0; }
 }

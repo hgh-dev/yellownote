@@ -7,6 +7,8 @@ import {
   ChevronUp,
   Check,
   MoreHorizontal,
+  CalendarDays,
+  ChevronDown,
 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -34,7 +36,8 @@ export function TaskRow({
   const [menuOpen, setMenuOpen] = useState(false);
   const title = useRef<HTMLInputElement>(null),
     memo = useRef<HTMLTextAreaElement>(null),
-    menu = useRef<HTMLDivElement>(null);
+    menu = useRef<HTMLDivElement>(null),
+    dateInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!menuOpen) return;
     const close = (event: PointerEvent) => {
@@ -163,8 +166,12 @@ export function TaskRow({
         <div className="task-details">
           <div className={`date-stack ${task.dueDate ? "has-date" : ""}`}>
           <label className="date-control">
-            <span className="sr-only">기한</span>
+            <span className="date-display" aria-hidden="true">
+              {task.dueDate || "처리기한"}
+            </span>
+            <CalendarDays className="date-icon" size={14} aria-hidden="true" />
             <input
+              ref={dateInput}
               type="date"
               aria-label="기한"
               min="1000-01-01"
@@ -173,6 +180,13 @@ export function TaskRow({
               onChange={(e) => {
                 if (!e.target.value || validDate(e.target.value))
                   updateTask(task.id, { dueDate: e.target.value || null }, true);
+              }}
+              onClick={() => {
+                try {
+                  dateInput.current?.showPicker();
+                } catch {
+                  // The native date field remains available when showPicker is unsupported.
+                }
               }}
             />
           </label>
@@ -187,6 +201,12 @@ export function TaskRow({
           )}
           </div>
           <span className="detail-divider" />
+          <label className={`priority-control ${task.priority || ""}`}>
+          <span className="priority-display" aria-hidden="true">
+            {task.priority && <span className="priority-dot" />}
+            {task.priority === "high" ? "상" : task.priority === "medium" ? "중" : task.priority === "low" ? "하" : "우선순위"}
+          </span>
+          <ChevronDown size={13} aria-hidden="true" />
           <select
             className={`priority ${task.priority || ""}`}
             aria-label="우선순위"
@@ -200,10 +220,11 @@ export function TaskRow({
             }
           >
             <option value="">우선순위</option>
-            <option value="high">상</option>
-            <option value="medium">중</option>
-            <option value="low">하</option>
+            <option value="high">🔴 상</option>
+            <option value="medium">🟠 중</option>
+            <option value="low">🟢 하</option>
           </select>
+          </label>
         </div>
         <div className="row-actions" ref={menu}>
           <button
