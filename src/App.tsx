@@ -11,7 +11,6 @@ import {
   DndContext,
   closestCenter,
   PointerSensor,
-  KeyboardSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -19,7 +18,6 @@ import {
 } from "@dnd-kit/core";
 import {
   SortableContext,
-  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useRegisterSW } from "virtual:pwa-register/react";
@@ -30,6 +28,7 @@ import {
   deleteTask,
   saveOrder,
   flush,
+  updateTask,
 } from "./data/store";
 import { sortedTasks, newTask, reorderTasks } from "./lib/tasks";
 import { useToday } from "./hooks/useToday";
@@ -42,7 +41,8 @@ export default function App() {
   const today = useToday(),
     [panel, setPanel] = useState<"sort" | "settings" | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null),
-    [focusId, setFocusId] = useState<string | null>(null);
+    [focusId, setFocusId] = useState<string | null>(null),
+    [selectedId, setSelectedId] = useState<string | null>(null);
   const [offline, setOffline] = useState(!navigator.onLine),
     [installEvent, setInstallEvent] = useState<InstallEvent | null>(null);
   const [notice, setNotice] = useState(""),
@@ -92,10 +92,6 @@ export default function App() {
   const completed = tasks.filter((t) => t.completed).length;
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-      scrollBehavior: "auto",
-    }),
   );
   const collision: CollisionDetection = (args) => {
     const active = tasks.find((t) => t.id === args.active.id);
@@ -107,6 +103,7 @@ export default function App() {
     });
   };
   function dragEnd({ active, over }: DragEndEvent) {
+    setSelectedId(String(active.id));
     if (!over) return;
     const next = reorderTasks(
       tasks,
@@ -119,6 +116,60 @@ export default function App() {
       setNotice("순서를 저장했습니다. 사용자 지정 정렬로 전환했습니다.");
     }
   }
+  useEffect(() => {
+    if (selectedId && !visible.some((task) => task.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [selectedId, visible]);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!ready || updating || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || document.querySelector("dialog[open]")) return;
+      const target = event.target;
+      if (event.key === "Escape") {
+        if (selectedId) {
+          event.preventDefault();
+          setSelectedId(null);
+          if (target instanceof HTMLInputElement && target.classList.contains("task-title")) target.blur();
+        }
+        return;
+      }
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, a, button:not(.drag-handle)"))) return;
+      if (event.key === " " || event.code === "Space") {
+        const active = visible.find((task) => task.id === selectedId);
+        if (active && !event.shiftKey) {
+          event.preventDefault();
+          updateTask(active.id, {
+            completed: !active.completed,
+            completedAt: active.completed ? null : new Date().toISOString(),
+          }, true);
+        }
+        return;
+      }
+      if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+      if (!visible.length) return;
+      event.preventDefault();
+      const index = visible.findIndex((task) => task.id === selectedId);
+      if (index < 0) {
+        setSelectedId(visible[0].id);
+        document.getElementById(`task-${visible[0].id}`)?.scrollIntoView({ block: "nearest" });
+        return;
+      }
+      const nextIndex = index + (event.key === "ArrowUp" ? -1 : 1);
+      if (nextIndex < 0 || nextIndex >= visible.length) return;
+      if (event.shiftKey) {
+        const next = reorderTasks(tasks, settings, visible[index].id, visible[nextIndex].id);
+        if (next) {
+          saveOrder(next);
+          setNotice("순서를 저장했습니다. 사용자 지정 정렬로 전환했습니다.");
+        }
+      } else {
+        setSelectedId(visible[nextIndex].id);
+      }
+      document.getElementById(`task-${visible[nextIndex].id}`)?.scrollIntoView({ block: "nearest" });
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [ready, updating, selectedId, visible, tasks, settings]);
   function add() {
     if (!ready || updating || Date.now() - lastAdd.current < 500) return;
     lastAdd.current = Date.now();
@@ -176,6 +227,8 @@ export default function App() {
           task={task}
           today={today}
           autoFocus={focusId === task.id}
+          selected={selectedId === task.id}
+          onSelect={() => setSelectedId(task.id)}
           onDelete={() => setDeleteId(task.id)}
         />
       ))}
@@ -259,7 +312,7 @@ export default function App() {
             accessibility={{
               screenReaderInstructions: {
                 draggable:
-                  "Space로 이동을 시작하고 방향키로 같은 그룹 안에서 순서를 바꾸세요. Space로 확정하거나 Escape로 취소하세요.",
+                  "드래그해서 같은 그룹 안에서 순서를 바꾸세요. 줄을 선택한 뒤 Shift와 방향키로도 이동할 수 있습니다.",
               },
             }}
           >

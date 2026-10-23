@@ -211,6 +211,12 @@ select {
 .task-row:hover {
   background: #fff8cf22;
 }
+.task-row.selected {
+  background: #fff8cf55;
+  outline: 2px solid #9b7844;
+  outline-offset: -2px;
+  border-radius: 3px;
+}
 .task-main {
   display: flex;
   align-items: center;
@@ -641,6 +647,15 @@ select {
 .sort-options button:hover {
   background: #f3ebc9;
 }
+.sort-section-title {
+  margin: 18px 0 8px;
+  color: #766b4b;
+  font-size: 12px;
+  font-weight: 600;
+}
+.sort-criteria { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sort-directions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sort-options button { gap: 4px; }
 .setting-line {
   display: flex;
   align-items: center;

@@ -2,28 +2,32 @@ import { Check } from "lucide-react";
 import { Dialog } from "./Dialog";
 import type { Settings, SortMode } from "../types";
 import { setSettings } from "../data/store";
-export const sortOptions: {
-  label: string;
-  mode: SortMode;
-  direction: Settings["direction"];
-}[] = [
-  { label: "등록순 · 오래된 순", mode: "created", direction: "asc" },
-  { label: "등록순 · 최신순", mode: "created", direction: "desc" },
-  { label: "기한순 · 빠른 순", mode: "due", direction: "asc" },
-  { label: "기한순 · 늦은 순", mode: "due", direction: "desc" },
-  { label: "우선순위 · 높은 순", mode: "priority", direction: "desc" },
-  { label: "우선순위 · 낮은 순", mode: "priority", direction: "asc" },
-  { label: "사용자 지정 정렬", mode: "manual", direction: "asc" },
+
+const criteria: { mode: Exclude<SortMode, "manual">; label: string; defaultDirection: Settings["direction"] }[] = [
+  { mode: "created", label: "등록일", defaultDirection: "asc" },
+  { mode: "due", label: "처리기한", defaultDirection: "asc" },
+  { mode: "priority", label: "우선순위", defaultDirection: "desc" },
 ];
+const directions: Record<Exclude<SortMode, "manual">, { direction: Settings["direction"]; label: string }[]> = {
+  created: [
+    { direction: "asc", label: "오래된 순" },
+    { direction: "desc", label: "최신순" },
+  ],
+  due: [
+    { direction: "asc", label: "빠른 순" },
+    { direction: "desc", label: "늦은 순" },
+  ],
+  priority: [
+    { direction: "desc", label: "높은 순" },
+    { direction: "asc", label: "낮은 순" },
+  ],
+};
+
 export function sortLabel(settings: Settings) {
-  return (
-    sortOptions.find(
-      (o) =>
-        o.mode === settings.sortMode &&
-        (o.mode === "manual" || o.direction === settings.direction),
-    )?.label || ""
-  );
+  if (settings.sortMode === "manual") return "사용자 지정 정렬";
+  return `${criteria.find((item) => item.mode === settings.sortMode)?.label ?? ""} · ${directions[settings.sortMode].find((item) => item.direction === settings.direction)?.label ?? ""}`;
 }
+
 export function SortDialog({
   settings,
   onClose,
@@ -31,28 +35,41 @@ export function SortDialog({
   settings: Settings;
   onClose: () => void;
 }) {
+  const selected = settings.sortMode === "manual" ? null : settings.sortMode;
   return (
     <Dialog title="할 일 정렬" onClose={onClose}>
       <p className="help">고정한 할 일은 어떤 정렬에서도 맨 위에 놓입니다.</p>
-      <div className="sort-options">
-        {sortOptions.map((o) => (
+      <div className="sort-section-title">정렬 기준</div>
+      <div className="sort-options sort-criteria">
+        {criteria.map((item) => (
           <button
-            key={o.label}
-            aria-pressed={sortLabel(settings) === o.label}
-            onClick={() => {
-              setSettings({ sortMode: o.mode, direction: o.direction });
-              onClose();
-            }}
+            key={item.mode}
+            aria-pressed={selected === item.mode}
+            onClick={() => setSettings({ sortMode: item.mode, direction: selected === item.mode ? settings.direction : item.defaultDirection })}
           >
-            {o.label}
-            {sortLabel(settings) === o.label && <Check size={18} />}
+            {item.label}
+            {selected === item.mode && <Check size={18} />}
           </button>
         ))}
       </div>
-      <p className="help">
-        손잡이를 움직이면 현재 순서에서 사용자 지정 정렬로 바뀝니다. 고정 그룹과
-        일반 그룹 안에서만 이동할 수 있습니다.
-      </p>
+      <div className="sort-section-title">순서</div>
+      {selected ? (
+        <div className="sort-options sort-directions">
+          {directions[selected].map((item) => (
+            <button
+              key={item.direction}
+              aria-pressed={settings.direction === item.direction}
+              onClick={() => setSettings({ direction: item.direction })}
+            >
+              {item.label}
+              {settings.direction === item.direction && <Check size={18} />}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="help">현재 사용자 지정 정렬입니다. 정렬 기준을 선택하면 해당 순서로 표시됩니다.</p>
+      )}
+      <p className="help">드래그하거나 할 일을 선택한 뒤 Shift+방향키로 순서를 바꿀 수 있습니다. 순서를 바꾸면 사용자 지정 정렬로 전환됩니다.</p>
     </Dialog>
   );
 }

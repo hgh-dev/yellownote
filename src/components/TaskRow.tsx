@@ -25,11 +25,15 @@ export function TaskRow({
   task,
   today,
   autoFocus,
+  selected,
+  onSelect,
   onDelete,
 }: {
   task: Task;
   today: string;
   autoFocus: boolean;
+  selected: boolean;
+  onSelect: () => void;
   onDelete: () => void;
 }) {
   const [memoOpen, setMemoOpen] = useState(false);
@@ -82,11 +86,24 @@ export function TaskRow({
   const label = task.title.trim() || "제목 없는 할 일";
   return (
     <article
+      id={`task-${task.id}`}
       ref={setNodeRef}
       style={style}
-      className={`task-row ${task.completed ? "completed" : ""} ${isDragging ? "dragging" : ""} ${isOver ? "drag-over" : ""}`}
+      className={`task-row ${task.completed ? "completed" : ""} ${selected ? "selected" : ""} ${isDragging ? "dragging" : ""} ${isOver ? "drag-over" : ""}`}
       data-testid="task-row"
       data-pinned={task.pinned}
+      data-selected={selected}
+      tabIndex={-1}
+      onClick={(event) => {
+        onSelect();
+        const target = event.target as HTMLElement;
+        if (target.classList.contains("task-title") && !selected) {
+          (target as HTMLInputElement).blur();
+          event.currentTarget.focus({ preventScroll: true });
+        } else if (!target.closest("input, textarea, select, button, a")) {
+          event.currentTarget.focus({ preventScroll: true });
+        }
+      }}
     >
       <div className="task-main">
         <button
@@ -95,7 +112,7 @@ export function TaskRow({
           {...attributes}
           {...listeners}
           aria-label={`${label} 순서 이동`}
-          title="드래그하거나 Space와 방향키로 이동"
+          title="드래그하거나 리스트 활성화 후 shift+방향키로 순서 변경"
         >
           <GripVertical size={17} />
         </button>

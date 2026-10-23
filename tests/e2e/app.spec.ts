@@ -34,11 +34,12 @@ test("한 줄 제목과 화면 너비에 따른 행 배치", async ({ page }) =>
   expect(await page.locator(".app-header").evaluate((element) => element.getBoundingClientRect().left)).toBe(0);
   await page.setViewportSize({ width: 393, height: 852 });
   bounds = await position();
-  expect(bounds.due).toBeGreaterThan(bounds.title);
-  expect(bounds.priority).toBeGreaterThan(bounds.title);
+  expect(bounds.due).toBe(bounds.title);
+  expect(bounds.priority).toBe(bounds.title);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 test("PC에서 Enter로 새 줄을 만들고 제목 Enter는 편집을 마친다", async ({ page }) => {
+  test.skip(test.info().project.name === "mobile", "PC 키보드 단축키");
   await page.goto("/");
   await page.keyboard.press("Enter");
   const titles = page.getByLabel("할 일 제목", { exact: true });
@@ -196,7 +197,7 @@ test("백업 내보내기, 검증, 덮어쓰기 취소와 복원", async ({ page
     "백업할 기록",
   );
 });
-test("모든 정렬의 핀 우선, 키보드 드래그 저장, 기한 삭제", async ({ page }) => {
+test("정렬 기준과 방향, 목록 선택 단축키, 기한 삭제", async ({ page }) => {
   await page.goto("/");
   for (const name of ["먼저", "다음", "중요"]) {
     await page
@@ -214,17 +215,18 @@ test("모든 정렬의 핀 우선, 키보드 드래그 저장, 기한 삭제", a
   await page
     .getByRole("button", { name: "중요 상단 고정", exact: true })
     .click();
-  for (const label of [
-    "등록순 · 최신순",
-    "기한순 · 빠른 순",
-    "기한순 · 늦은 순",
-    "우선순위 · 높은 순",
-    "우선순위 · 낮은 순",
-    "사용자 지정 정렬",
-    "등록순 · 오래된 순",
+  for (const [criterion, direction] of [
+    ["등록일", "최신순"],
+    ["처리기한", "빠른 순"],
+    ["처리기한", "늦은 순"],
+    ["우선순위", "높은 순"],
+    ["우선순위", "낮은 순"],
+    ["등록일", "오래된 순"],
   ]) {
     await page.getByRole("button", { name: "정렬", exact: true }).click();
-    await page.getByRole("button", { name: label, exact: true }).last().click();
+    await page.getByRole("dialog", { name: "할 일 정렬" }).getByRole("button", { name: criterion, exact: true }).click();
+    await page.getByRole("dialog", { name: "할 일 정렬" }).getByRole("button", { name: direction, exact: true }).click();
+    await page.getByRole("button", { name: "닫기", exact: true }).click();
     await expect(page.getByTestId("task-row").first()).toHaveAttribute(
       "data-pinned",
       "true",
@@ -234,18 +236,20 @@ test("모든 정렬의 핀 우선, 키보드 드래그 저장, 기한 삭제", a
     name: "다음 순서 이동",
     exact: true,
   });
-  await handle.focus();
-  // Allow the sensor's deferred key listener and initial measurement to attach.
-  await handle.press("Space", { delay: 100 });
-  await expect(page.locator(".dragging")).toBeVisible();
-  await page.keyboard.press("ArrowUp");
-  await expect(
-    page.locator(".drag-over").getByLabel("할 일 제목", { exact: true }),
-  ).toHaveValue("먼저");
+  await handle.click();
+  await expect(handle.locator("xpath=../..")).toHaveAttribute("data-selected", "true");
+  await page.keyboard.press("Shift+ArrowUp");
+  await expect(page.getByLabel("할 일 제목", { exact: true }).nth(1)).toHaveValue("다음");
   await page.keyboard.press("Space");
-  await expect(
-    page.getByRole("textbox", { name: "할 일 제목", exact: true }).nth(1),
-  ).toHaveValue("다음");
+  await expect(page.getByLabel("다음 완료", { exact: true })).toBeChecked();
+  await page.keyboard.press("Escape");
+  await expect(handle.locator("xpath=../..")).toHaveAttribute("data-selected", "false");
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-selected", "true");
+  await page.getByTestId("task-row").nth(2).click();
+  await expect(page.getByTestId("task-row").nth(2)).toHaveAttribute("data-selected", "true");
+  await page.keyboard.press("ArrowUp");
+  await expect(page.getByTestId("task-row").nth(1)).toHaveAttribute("data-selected", "true");
   await expect(
     page.getByRole("button", { name: "사용자 지정 정렬", exact: true }),
   ).toBeVisible();
