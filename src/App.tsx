@@ -86,9 +86,7 @@ export default function App() {
     resize();
     return () => viewport?.removeEventListener("resize", resize);
   }, []);
-  const visible = sortedTasks(tasks, settings),
-    pinned = visible.filter((t) => t.pinned),
-    normal = visible.filter((t) => !t.pinned);
+  const visible = sortedTasks(tasks, settings);
   const completed = tasks.filter((t) => t.completed).length;
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -98,7 +96,11 @@ export default function App() {
     return closestCenter({
       ...args,
       droppableContainers: args.droppableContainers.filter(
-        (c) => tasks.find((t) => t.id === c.id)?.pinned === active?.pinned,
+        (c) => {
+          const candidate = tasks.find((t) => t.id === c.id);
+          return candidate?.pinned === active?.pinned &&
+            (!settings.completedSort || settings.completedSort === "include" || candidate?.completed === active?.completed);
+        },
       ),
     });
   };
@@ -316,16 +318,7 @@ export default function App() {
               },
             }}
           >
-            {!!pinned.length && (
-              <div className="task-group">
-                {group(pinned)}
-              </div>
-            )}
-            {!!normal.length && (
-              <div className="task-group">
-                {group(normal)}
-              </div>
-            )}
+            <div className="task-group">{group(visible)}</div>
           </DndContext>
           {ready && !visible.length && (
             <div className="empty-state">

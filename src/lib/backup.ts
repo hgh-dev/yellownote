@@ -20,7 +20,8 @@ export function validSettings(v: unknown): v is Settings {
     v.id === "preferences" &&
     typeof v.showCompleted === "boolean" &&
     ["created", "due", "priority", "manual"].includes(v.sortMode as string) &&
-    ["asc", "desc"].includes(v.direction as string)
+    ["asc", "desc"].includes(v.direction as string) &&
+    (v.completedSort === undefined || ["include", "top", "bottom"].includes(v.completedSort as string))
   );
 }
 export function validTask(v: unknown): v is Task {

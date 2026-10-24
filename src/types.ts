@@ -18,6 +18,7 @@ export interface Settings {
   showCompleted: boolean;
   sortMode: SortMode;
   direction: "asc" | "desc";
+  completedSort?: "include" | "top" | "bottom";
 }
 export const defaults: Settings = {
   id: "preferences",

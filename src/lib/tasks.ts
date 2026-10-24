@@ -36,6 +36,12 @@ export function sortedTasks(tasks: Task[], settings: Settings): Task[] {
   return tasks
     .filter((t) => settings.showCompleted || !t.completed)
     .sort((a, b) => {
+      if (settings.completedSort && settings.completedSort !== "include") {
+        if (a.completed !== b.completed)
+          return a.completed === (settings.completedSort === "top") ? -1 : 1;
+        if (a.completed && b.completed)
+          return a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
+      }
       if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
       let diff = 0;
       if (settings.sortMode === "created")
@@ -69,6 +75,8 @@ export function reorderTasks(
   const active = visible.find((t) => t.id === activeId),
     over = visible.find((t) => t.id === overId);
   if (!active || !over || active.pinned !== over.pinned || activeId === overId)
+    return null;
+  if (settings.completedSort && settings.completedSort !== "include" && active.completed !== over.completed)
     return null;
   const from = visible.indexOf(active),
     to = visible.indexOf(over);

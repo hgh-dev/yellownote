@@ -88,6 +88,16 @@ describe("정렬과 핀", () => {
   });
   it("다른 그룹으로 드래그를 거부", () =>
     expect(reorderTasks([a, p], defaults, a.id, p.id)).toBeNull());
+  it("완료 제외 시 상하단 배치가 핀보다 우선하고 완료 항목은 수동 순서 유지", () => {
+    const doneA = task({ completed: true, completedAt: "2026-10-20T00:00:00.000Z", sortOrder: 2, dueDate: "2026-10-01" });
+    const doneB = task({ completed: true, completedAt: "2026-10-20T00:00:00.000Z", sortOrder: 1, dueDate: "2026-12-01" });
+    const source = [doneA, p, a, doneB];
+    const config = { ...defaults, sortMode: "due" as const, completedSort: "top" as const };
+    expect(sortedTasks(source, config).map(t => t.id)).toEqual([doneB.id, doneA.id, p.id, a.id]);
+    expect(sortedTasks(source, { ...config, completedSort: "bottom" }).map(t => t.id)).toEqual([p.id, a.id, doneB.id, doneA.id]);
+    expect(sortedTasks(source, { ...config, showCompleted: false }).map(t => t.id)).toEqual([p.id, a.id]);
+    expect(reorderTasks(source, config, a.id, doneA.id)).toBeNull();
+  });
   it("표시 순서를 수동 순서로 바꾸고 숨긴 항목도 보존", () => {
     const b = task({ title: "나중", createdAt: "2026-10-22T00:00:00.000Z" }),
       hidden = task({
@@ -103,6 +113,11 @@ describe("정렬과 핀", () => {
   });
 });
 describe("백업과 IndexedDB", () => {
+  it("완료 정렬 설정은 백업에 보존하고 잘못된 값은 거부", () => {
+    const backup = makeBackup([], { ...defaults, completedSort: "top" });
+    expect(parseBackup(JSON.stringify(backup)).settings.completedSort).toBe("top");
+    expect(() => parseBackup(JSON.stringify({ ...backup, settings: { ...backup.settings, completedSort: "invalid" } }))).toThrow();
+  });
   it("한글, 줄바꿈, 핀, 완료, 설정 왕복", () => {
     const b = makeBackup(
       [task({ memo: "10월 20일: 접수\n10월 21일: 현장 확인", pinned: true })],

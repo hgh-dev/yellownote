@@ -964,16 +964,36 @@ textarea {
   letter-spacing: 0;
 }
 @media (max-width: 520px) {
-  .app-header { grid-template-rows: 88px 88px; min-height: 176px; }
+  .app-header { grid-template-rows: 88px 44px; min-height: 132px; }
   .header-meta {
-    height: 88px;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: 44px 44px;
-    gap: 0 8px;
+    height: 44px;
+    grid-template-columns: auto minmax(86px, 1fr) auto;
+    grid-template-rows: 44px;
+    gap: 0 4px;
   }
-  .header-meta time { grid-column: 1 / -1; grid-row: 1; }
-  .task-counts { grid-column: 1; grid-row: 2; }
-  .current-sort { grid-column: 2; grid-row: 2; font-size: 10px; }
+  .header-meta time {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 9px;
+  }
+  .task-counts {
+    grid-column: 1;
+    grid-row: 1;
+    font-size: 9px;
+  }
+  .current-sort {
+    grid-column: 3;
+    grid-row: 1;
+    max-width: 86px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 9px;
+  }
+  .completed-count { margin-left: 7px; font-size: 9px; }
   .task-counts .completed-count { display: inline; }
 }
 

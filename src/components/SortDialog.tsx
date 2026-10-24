@@ -38,7 +38,22 @@ export function SortDialog({
   const selected = settings.sortMode === "manual" ? null : settings.sortMode;
   return (
     <Dialog title="할 일 정렬" onClose={onClose}>
-      <p className="help">고정한 할 일은 어떤 정렬에서도 맨 위에 놓입니다.</p>
+      <p className="help">고정한 할 일은 정렬 대상 안에서 맨 위에 놓입니다.</p>
+      <div className="sort-section-title">완료한 일 정렬</div>
+      <div className="sort-options sort-directions">
+        <button aria-pressed={!settings.completedSort || settings.completedSort === "include"}
+          onClick={() => setSettings({ completedSort: "include" })}>포함하여 정렬</button>
+        <button aria-pressed={settings.completedSort === "top" || settings.completedSort === "bottom"}
+          onClick={() => setSettings({ completedSort: settings.completedSort === "top" ? "top" : "bottom" })}>제외하고 따로 배치</button>
+      </div>
+      {(settings.completedSort === "top" || settings.completedSort === "bottom") && <>
+        <div className="sort-section-title">완료한 일 위치</div>
+        <div className="sort-options sort-directions">
+          <button aria-pressed={settings.completedSort === "top"} onClick={() => setSettings({ completedSort: "top" })}>상단</button>
+          <button aria-pressed={settings.completedSort === "bottom"} onClick={() => setSettings({ completedSort: "bottom" })}>하단</button>
+        </div>
+        <p className="help">완료한 일은 선택한 기준으로 정렬하지 않고 기존 수동 순서로 모아 표시합니다. 완료 표시를 꺼 둔 경우에는 숨겨집니다.</p>
+      </>}
       <div className="sort-section-title">정렬 기준</div>
       <div className="sort-options sort-criteria">
         {criteria.map((item) => (
