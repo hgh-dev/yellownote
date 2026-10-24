@@ -124,6 +124,15 @@ export default function App() {
     }
   }, [selectedId, visible]);
   useEffect(() => {
+    const clearSelection = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element) || target.closest(".task-row, dialog, button, a, input, textarea, select, [contenteditable='true']")) return;
+      setSelectedId(null);
+    };
+    document.addEventListener("pointerdown", clearSelection);
+    return () => document.removeEventListener("pointerdown", clearSelection);
+  }, []);
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!ready || updating || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || document.querySelector("dialog[open]")) return;
       const target = event.target;
