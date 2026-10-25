@@ -31,6 +31,7 @@ export const useNote = () =>
     },
     () => state,
   );
+export const getNote = () => state;
 const journalKey = "yellow-note-recovery-v1";
 let pending = new Map<string, Task | null>();
 let pendingSettings: Settings | null = null;
@@ -55,6 +56,7 @@ function journal() {
 function schedule(immediate = false) {
   journal();
   emit({ saving: true });
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("yellow-note-change"));
   clearTimeout(timer);
   if (immediate) void flush().catch(() => {});
   else
@@ -72,10 +74,15 @@ export function flush(): Promise<void> {
   const batch = new Map(pending),
     preferences = pendingSettings;
   running = db
-    .transaction("rw", db.tasks, db.settings, async () => {
+    .transaction("rw", db.tasks, db.settings, db.deleted, async () => {
       for (const [id, task] of batch) {
-        if (task) await db.tasks.put(task);
-        else await db.tasks.delete(id);
+        if (task) {
+          await db.tasks.put(task);
+          await db.deleted.delete(id);
+        } else {
+          await db.tasks.delete(id);
+          await db.deleted.put({ id, deletedAt: new Date().toISOString() });
+        }
       }
       if (preferences) await db.settings.put(preferences);
     })
@@ -163,13 +170,13 @@ export function deleteTask(id: string) {
   schedule(true);
 }
 export function setSettings(patch: Partial<Settings>) {
-  const settings = { ...state.settings, ...patch };
+  const settings = { ...state.settings, ...patch, updatedAt: new Date().toISOString() };
   emit({ settings });
   pendingSettings = settings;
   schedule(true);
 }
 export function saveOrder(tasks: Task[]) {
-  emit({ tasks, settings: { ...state.settings, sortMode: "manual" } });
+  emit({ tasks, settings: { ...state.settings, sortMode: "manual", updatedAt: new Date().toISOString() } });
   tasks.forEach((t) => pending.set(t.id, t));
   pendingSettings = state.settings;
   schedule(true);
@@ -178,6 +185,18 @@ export async function restore(backup: Backup) {
   await flush();
   await replaceDatabase(backup);
   emit({ tasks: backup.tasks, settings: backup.settings, error: null });
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("yellow-note-change"));
+}
+export async function applySynced(tasks: Task[], settings: Settings, deleted: { id: string; deletedAt: string }[]) {
+  await flush();
+  await db.transaction("rw", db.tasks, db.settings, db.deleted, async () => {
+    await db.tasks.clear();
+    await db.tasks.bulkPut(tasks);
+    await db.settings.put(settings);
+    await db.deleted.clear();
+    await db.deleted.bulkPut(deleted);
+  });
+  emit({ tasks, settings, error: null });
 }
 if (typeof window !== "undefined") {
   window.addEventListener("pagehide", () => {

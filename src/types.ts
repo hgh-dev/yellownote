@@ -19,6 +19,7 @@ export interface Settings {
   sortMode: SortMode;
   direction: "asc" | "desc";
   completedSort?: "include" | "top" | "bottom";
+  updatedAt?: string;
 }
 export const defaults: Settings = {
   id: "preferences",

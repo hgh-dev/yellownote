@@ -11,12 +11,33 @@ import {
 } from "../src/lib/tasks";
 import { makeBackup, parseBackup, validDate } from "../src/lib/backup";
 import { NoteDatabase, replaceDatabase } from "../src/data/db";
+import { mergeCloudData } from "../src/lib/cloud";
 const task = (patch: Partial<Task> = {}): Task => ({
   ...newTask(0),
   title: "산림사업 설계서 검토",
   createdAt: "2026-10-20T01:00:00.000Z",
   updatedAt: "2026-10-20T01:00:00.000Z",
   ...patch,
+});
+describe("Drive 데이터 합치기", () => {
+  it("다른 기기의 새 할 일을 보존하고 삭제된 할 일을 되살리지 않음", () => {
+    const removed = task();
+    const added = task({ id: crypto.randomUUID(), title: "다른 기기 할 일" });
+    const local = { app: "yellow-note-sync" as const, version: 1 as const, tasks: [removed], settings: defaults, deleted: [] };
+    const remote = { ...local, tasks: [added], deleted: [{ id: removed.id, deletedAt: "2026-10-21T01:00:00.000Z" }] };
+    const result = mergeCloudData(local, remote);
+    expect(result.tasks.map((item) => item.id)).toEqual([added.id]);
+    expect(result.deleted).toEqual(remote.deleted);
+  });
+  it("나중에 수정한 할 일과 설정을 선택함", () => {
+    const older = task();
+    const newer = { ...older, title: "수정됨", updatedAt: "2026-10-22T01:00:00.000Z" };
+    const local = { app: "yellow-note-sync" as const, version: 1 as const, tasks: [newer], settings: { ...defaults, updatedAt: "2026-10-22T01:00:00.000Z" }, deleted: [] };
+    const remote = { ...local, tasks: [older], settings: defaults };
+    const result = mergeCloudData(local, remote);
+    expect(result.tasks[0].title).toBe("수정됨");
+    expect(result.settings.updatedAt).toBe(local.settings.updatedAt);
+  });
 });
 describe("현지 날짜와 D-day", () => {
   it("미래, 오늘, 과거 및 연도 변경", () => {

@@ -1,10 +1,11 @@
-import { useRef, useState } from "react";
-import { Download, Upload, Smartphone } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Download, Upload, Smartphone, Cloud } from "lucide-react";
 import { Dialog } from "./Dialog";
 import { useNote, setSettings, restore } from "../data/store";
 import { makeBackup, parseBackup } from "../lib/backup";
 import { localDate } from "../lib/tasks";
 import type { Backup } from "../types";
+import { cloudAvailable, cloudConnected, connectGoogle, disconnectGoogle, syncGoogle } from "../lib/cloud";
 export interface InstallEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: string }>;
@@ -23,6 +24,26 @@ export function SettingsDialog({
   const [candidate, setCandidate] = useState<Backup | null>(null),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
+  const [connected, setConnected] = useState(cloudConnected());
+  const [cloudMessage, setCloudMessage] = useState("");
+  useEffect(() => {
+    const update = () => setConnected(cloudConnected());
+    window.addEventListener("yellow-note-cloud-status", update);
+    return () => window.removeEventListener("yellow-note-cloud-status", update);
+  }, []);
+  async function cloudAction(connect: boolean) {
+    setBusy(true);
+    setCloudMessage("");
+    try {
+      if (connect) await connectGoogle();
+      await syncGoogle();
+      setConnected(cloudConnected());
+      setCloudMessage("Google Drive와 동기화했습니다.");
+    } catch (e) {
+      setCloudMessage(e instanceof Error ? e.message : "동기화하지 못했습니다.");
+      setConnected(cloudConnected());
+    } finally { setBusy(false); }
+  }
   function download() {
     // Export the current in-memory content even if browser storage is full.
     const url = URL.createObjectURL(
@@ -82,6 +103,23 @@ export function SettingsDialog({
           onChange={(e) => setSettings({ showCompleted: e.target.checked })}
         />
       </div>
+      <section className="settings-section">
+        <h3><Cloud size={17} /> Google Drive 동기화</h3>
+        <p className="help">
+          로그인하면 할 일과 설정을 Google Drive의 앱 전용 공간에 저장하고,
+          온라인일 때 다른 기기의 변경사항을 주기적으로 합칩니다.
+          오프라인에서도 이 기기에 저장됩니다.
+        </p>
+        {cloudAvailable() ? (
+          <div className="button-pair">
+            <button disabled={busy} onClick={() => void cloudAction(!connected)}>
+              {connected ? "지금 동기화" : "Google 계정으로 연결"}
+            </button>
+            {connected && <button disabled={busy} onClick={() => { disconnectGoogle(); setConnected(false); setCloudMessage("연결을 해제했습니다. 기기와 Drive의 기록은 유지됩니다."); }}>연결 해제</button>}
+          </div>
+        ) : <p className="help">Google OAuth 클라이언트 ID 설정 후 사용할 수 있습니다.</p>}
+        {cloudMessage && <p className="feedback" role="status">{cloudMessage}</p>}
+      </section>
       <section className="settings-section">
         <h3>백업과 복원</h3>
         <p className="help">

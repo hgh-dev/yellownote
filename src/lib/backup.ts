@@ -21,6 +21,7 @@ export function validSettings(v: unknown): v is Settings {
     typeof v.showCompleted === "boolean" &&
     ["created", "due", "priority", "manual"].includes(v.sortMode as string) &&
     ["asc", "desc"].includes(v.direction as string) &&
+    (v.updatedAt === undefined || iso(v.updatedAt)) &&
     (v.completedSort === undefined || ["include", "top", "bottom"].includes(v.completedSort as string))
   );
 }
