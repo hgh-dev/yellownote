@@ -6,7 +6,7 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:4173",
     trace: "retain-on-failure",
     channel: process.env.PLAYWRIGHT_CHANNEL,
-    launchOptions: { args: ["--disable-gpu"] },
+    launchOptions: { args: ["--disable-gpu"], executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH },
   },
   webServer: {
     command: "npm run preview -- --port 4173",

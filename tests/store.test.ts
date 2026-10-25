@@ -9,6 +9,10 @@ import {
   flush,
   deleteTask,
   setSettings,
+  addPage,
+  renamePage,
+  deletePage,
+  getNote,
 } from "../src/data/store";
 const memory = new Map<string, string>();
 vi.stubGlobal("localStorage", {
@@ -65,4 +69,20 @@ it("저장 실패 후 보류된 변경을 재시도로 복구", async () => {
   put.mockRestore();
   await flush();
   expect((await db.tasks.get(t.id))?.title).toBe("저장 실패해도 유지");
+});
+it("페이지에 할 일을 넣고 이름 변경·삭제해도 할 일은 미분류로 남음", async () => {
+  const id = addPage("업무");
+  const t = { ...newTask(3), pageId: id, title: "회의 준비" };
+  addTask(t);
+  await flush();
+  expect((await db.pages.get(id))?.name).toBe("업무");
+  expect((await db.tasks.get(t.id))?.pageId).toBe(id);
+  renamePage(id, "회사");
+  await flush();
+  expect((await db.pages.get(id))?.name).toBe("회사");
+  deletePage(id);
+  await flush();
+  expect(getNote().tasks.find((item) => item.id === t.id)?.pageId).toBeNull();
+  expect((await db.tasks.get(t.id))?.pageId).toBeNull();
+  expect((await db.pages.get(id))?.deletedAt).toBeTruthy();
 });

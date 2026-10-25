@@ -1,9 +1,10 @@
 import { useSyncExternalStore } from "react";
 import { db, replaceDatabase } from "./db";
-import { defaults, type Task, type Settings, type Backup } from "../types";
-import { validTask, validSettings } from "../lib/backup";
+import { defaults, type Task, type Settings, type Backup, type Page } from "../types";
+import { normalizeTask, validPage, validSettings } from "../lib/backup";
 interface State {
   tasks: Task[];
+  pages: Page[];
   settings: Settings;
   ready: boolean;
   saving: boolean;
@@ -11,6 +12,7 @@ interface State {
 }
 let state: State = {
   tasks: [],
+  pages: [],
   settings: defaults,
   ready: false,
   saving: false,
@@ -34,17 +36,18 @@ export const useNote = () =>
 export const getNote = () => state;
 const journalKey = "yellow-note-recovery-v1";
 let pending = new Map<string, Task | null>();
+let pendingPages = new Map<string, Page>();
 let pendingSettings: Settings | null = null;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let running: Promise<void> | null = null;
 let starting: Promise<void> | null = null;
 function journal() {
   try {
-    if (!pending.size && !pendingSettings) localStorage.removeItem(journalKey);
+    if (!pending.size && !pendingPages.size && !pendingSettings) localStorage.removeItem(journalKey);
     else
       localStorage.setItem(
         journalKey,
-        JSON.stringify({ tasks: [...pending], settings: pendingSettings }),
+        JSON.stringify({ tasks: [...pending], pages: [...pendingPages], settings: pendingSettings }),
       );
   } catch {
     emit({
@@ -68,13 +71,14 @@ export function flush(): Promise<void> {
   clearTimeout(timer);
   if (running)
     return running.then(() =>
-      pending.size || pendingSettings ? flush() : undefined,
+      pending.size || pendingPages.size || pendingSettings ? flush() : undefined,
     );
-  if (!pending.size && !pendingSettings) return Promise.resolve();
+  if (!pending.size && !pendingPages.size && !pendingSettings) return Promise.resolve();
   const batch = new Map(pending),
+    pageBatch = new Map(pendingPages),
     preferences = pendingSettings;
   running = db
-    .transaction("rw", db.tasks, db.settings, db.deleted, async () => {
+    .transaction("rw", db.tasks, db.settings, db.deleted, db.pages, async () => {
       for (const [id, task] of batch) {
         if (task) {
           await db.tasks.put(task);
@@ -84,15 +88,19 @@ export function flush(): Promise<void> {
           await db.deleted.put({ id, deletedAt: new Date().toISOString() });
         }
       }
+      for (const page of pageBatch.values()) await db.pages.put(page);
       if (preferences) await db.settings.put(preferences);
     })
     .then(() => {
       batch.forEach((task, id) => {
         if (pending.get(id) === task) pending.delete(id);
       });
+      pageBatch.forEach((page, id) => {
+        if (pendingPages.get(id) === page) pendingPages.delete(id);
+      });
       if (pendingSettings === preferences) pendingSettings = null;
       journal();
-      emit({ saving: !!pending.size || !!pendingSettings, error: null });
+      emit({ saving: !!pending.size || !!pendingPages.size || !!pendingSettings, error: null });
     })
     .catch((error: unknown) => {
       emit({
@@ -106,7 +114,7 @@ export function flush(): Promise<void> {
       running = null;
     });
   return running.then(() =>
-    pending.size || pendingSettings ? flush() : undefined,
+    pending.size || pendingPages.size || pendingSettings ? flush() : undefined,
   );
 }
 export function initialize() {
@@ -124,20 +132,24 @@ export function initialize() {
               entry.length === 2 &&
               typeof entry[0] === "string" &&
               (entry[1] === null ||
-                (validTask(entry[1]) && entry[1].id === entry[0])),
+                (normalizeTask(entry[1])?.id === entry[0])),
           ) ||
+          (recovery.pages !== undefined && (!Array.isArray(recovery.pages) || !recovery.pages.every((entry: unknown) =>
+            Array.isArray(entry) && entry.length === 2 && validPage(entry[1]) && entry[0] === entry[1].id))) ||
           (recovery.settings !== null && !validSettings(recovery.settings))
         )
           throw new Error("복구 데이터 오류");
-        pending = new Map(recovery.tasks);
+        pending = new Map(recovery.tasks.map(([id, task]: [string, unknown]) => [id, task === null ? null : normalizeTask(task)]));
+        pendingPages = new Map(recovery.pages || []);
         pendingSettings = recovery.settings;
         await flush();
       }
-      const [tasks, settings] = await Promise.all([
+      const [tasks, settings, pages] = await Promise.all([
         db.tasks.toArray(),
         db.settings.get("preferences"),
+        db.pages.toArray(),
       ]);
-      emit({ tasks, settings: settings || defaults, ready: true });
+      emit({ tasks, pages, settings: settings || defaults, ready: true });
     } catch {
       emit({
         error:
@@ -176,27 +188,79 @@ export function setSettings(patch: Partial<Settings>) {
   schedule(true);
 }
 export function saveOrder(tasks: Task[]) {
+  const previous = state.tasks;
   emit({ tasks, settings: { ...state.settings, sortMode: "manual", updatedAt: new Date().toISOString() } });
-  tasks.forEach((t) => pending.set(t.id, t));
+  tasks.forEach((t) => { if (previous.find((old) => old.id === t.id) !== t) pending.set(t.id, t); });
   pendingSettings = state.settings;
+  schedule(true);
+}
+function pageName(name: string, exceptId?: string) {
+  const trimmed = name.trim();
+  if (!trimmed || trimmed.length > 40) throw new Error("페이지 이름은 1~40자로 입력해 주세요.");
+  if (state.pages.some((p) => !p.deletedAt && p.id !== exceptId && p.name.toLocaleLowerCase() === trimmed.toLocaleLowerCase()))
+    throw new Error("같은 이름의 페이지가 이미 있습니다.");
+  return trimmed;
+}
+export function addPage(name: string): string {
+  const now = new Date().toISOString();
+  const page: Page = { id: crypto.randomUUID(), name: pageName(name), sortOrder: Math.max(-1, ...state.pages.map((p) => p.sortOrder)) + 1, updatedAt: now, deletedAt: null };
+  emit({ pages: [...state.pages, page] });
+  pendingPages.set(page.id, page);
+  schedule(true);
+  return page.id;
+}
+export function renamePage(id: string, name: string) {
+  const old = state.pages.find((p) => p.id === id && !p.deletedAt);
+  if (!old) return;
+  const next = pageName(name, id);
+  if (next === old.name) return;
+  const page = { ...old, name: next, updatedAt: new Date().toISOString() };
+  emit({ pages: state.pages.map((p) => p.id === id ? page : p) });
+  pendingPages.set(id, page);
+  schedule(true);
+}
+export function movePage(id: string, direction: -1 | 1) {
+  const ordered = state.pages.filter((p) => !p.deletedAt).sort((a, b) => a.sortOrder - b.sortOrder);
+  const index = ordered.findIndex((p) => p.id === id);
+  const other = ordered[index + direction];
+  if (index < 0 || !other) return;
+  const now = new Date().toISOString();
+  const first = { ...ordered[index], sortOrder: other.sortOrder, updatedAt: now };
+  const second = { ...other, sortOrder: ordered[index].sortOrder, updatedAt: now };
+  emit({ pages: state.pages.map((p) => p.id === first.id ? first : p.id === second.id ? second : p) });
+  pendingPages.set(first.id, first); pendingPages.set(second.id, second);
+  schedule(true);
+}
+export function deletePage(id: string) {
+  const old = state.pages.find((p) => p.id === id && !p.deletedAt);
+  if (!old) return;
+  const now = new Date().toISOString();
+  const page = { ...old, updatedAt: now, deletedAt: now };
+  const affected = state.tasks.filter((t) => t.pageId === id);
+  const tasks = state.tasks.map((t) => t.pageId === id ? { ...t, pageId: null, updatedAt: now } : t);
+  emit({ pages: state.pages.map((p) => p.id === id ? page : p), tasks });
+  tasks.forEach((t) => { if (affected.some((oldTask) => oldTask.id === t.id)) pending.set(t.id, t); });
+  pendingPages.set(id, page);
   schedule(true);
 }
 export async function restore(backup: Backup) {
   await flush();
   await replaceDatabase(backup);
-  emit({ tasks: backup.tasks, settings: backup.settings, error: null });
+  emit({ tasks: backup.tasks, pages: backup.pages, settings: backup.settings, error: null });
   if (typeof window !== "undefined") window.dispatchEvent(new Event("yellow-note-change"));
 }
-export async function applySynced(tasks: Task[], settings: Settings, deleted: { id: string; deletedAt: string }[]) {
+export async function applySynced(tasks: Task[], settings: Settings, deleted: { id: string; deletedAt: string }[], pages: Page[]) {
   await flush();
-  await db.transaction("rw", db.tasks, db.settings, db.deleted, async () => {
+  await db.transaction("rw", db.tasks, db.settings, db.deleted, db.pages, async () => {
     await db.tasks.clear();
     await db.tasks.bulkPut(tasks);
     await db.settings.put(settings);
     await db.deleted.clear();
     await db.deleted.bulkPut(deleted);
+    await db.pages.clear();
+    await db.pages.bulkPut(pages);
   });
-  emit({ tasks, settings, error: null });
+  emit({ tasks, pages, settings, error: null });
 }
 if (typeof window !== "undefined") {
   window.addEventListener("pagehide", () => {
@@ -210,7 +274,7 @@ if (typeof window !== "undefined") {
     }
   });
   window.addEventListener("beforeunload", (e) => {
-    if (pending.size || pendingSettings) {
+    if (pending.size || pendingPages.size || pendingSettings) {
       journal();
       void flush().catch(() => {});
       e.preventDefault();

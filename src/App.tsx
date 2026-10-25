@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowDownUp,
   Settings as SettingsIcon,
@@ -6,6 +6,7 @@ import {
   Check,
   BookOpen,
   CloudOff,
+  Menu,
 } from "lucide-react";
 import {
   DndContext,
@@ -36,8 +37,9 @@ import { TaskRow } from "./components/TaskRow";
 import { SortDialog, sortLabel } from "./components/SortDialog";
 import { SettingsDialog, type InstallEvent } from "./components/SettingsDialog";
 import { Dialog } from "./components/Dialog";
+import { PageSidebar } from "./components/PageSidebar";
 export default function App() {
-  const { tasks, settings, ready, saving, error } = useNote();
+  const { tasks, pages, settings, ready, saving, error } = useNote();
   const today = useToday(),
     [panel, setPanel] = useState<"sort" | "settings" | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null),
@@ -47,6 +49,19 @@ export default function App() {
     [installEvent, setInstallEvent] = useState<InstallEvent | null>(null);
   const [notice, setNotice] = useState(""),
     [updating, setUpdating] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedPage, setSelectedPage] = useState<string | null>(() => {
+    try { const saved = localStorage.getItem("yellow-note-page"); return saved === null ? "all" : saved || null; } catch { return "all"; }
+  });
+  const closeSidebar = useCallback(() => {
+    setSidebarOpen(false);
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(".page-toggle")?.focus());
+  }, []);
+  function choosePage(id: string | null) {
+    setSelectedPage(id);
+    lastAdd.current = 0;
+    try { localStorage.setItem("yellow-note-page", id || ""); } catch { /* UI selection can remain in memory. */ }
+  }
   const lastAdd = useRef(0);
   const {
     needRefresh: [needRefresh],
@@ -86,8 +101,13 @@ export default function App() {
     resize();
     return () => viewport?.removeEventListener("resize", resize);
   }, []);
-  const visible = sortedTasks(tasks, settings);
-  const completed = tasks.filter((t) => t.completed).length;
+  useEffect(() => {
+    if (ready && selectedPage !== "all" && selectedPage !== null && !pages.some((p) => p.id === selectedPage && !p.deletedAt)) choosePage(null);
+  }, [ready, selectedPage, pages]);
+  const scopedTasks = selectedPage === "all" ? tasks : tasks.filter((t) => t.pageId === selectedPage);
+  const visible = sortedTasks(scopedTasks, settings);
+  const completed = scopedTasks.filter((t) => t.completed).length;
+  const pageTitle = selectedPage === "all" ? "모든 할 일" : selectedPage === null ? "미분류" : pages.find((p) => p.id === selectedPage)?.name || "미분류";
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
@@ -98,7 +118,7 @@ export default function App() {
       droppableContainers: args.droppableContainers.filter(
         (c) => {
           const candidate = tasks.find((t) => t.id === c.id);
-          return candidate?.pinned === active?.pinned &&
+          return candidate?.pageId === active?.pageId && candidate?.pinned === active?.pinned &&
             (!settings.completedSort || settings.completedSort === "include" || candidate?.completed === active?.completed);
         },
       ),
@@ -108,13 +128,13 @@ export default function App() {
     setSelectedId(String(active.id));
     if (!over) return;
     const next = reorderTasks(
-      tasks,
+      scopedTasks,
       settings,
       String(active.id),
       String(over.id),
     );
     if (next) {
-      saveOrder(next);
+      saveOrder([...tasks.filter((t) => !next.some((item) => item.id === t.id)), ...next]);
       setNotice("순서를 저장했습니다. 사용자 지정 정렬로 전환했습니다.");
     }
   }
@@ -134,7 +154,7 @@ export default function App() {
   }, []);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!ready || updating || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || document.querySelector("dialog[open]")) return;
+      if (!ready || updating || sidebarOpen || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || document.querySelector("dialog[open]")) return;
       const target = event.target;
       if (event.key === "Escape") {
         if (selectedId) {
@@ -168,9 +188,9 @@ export default function App() {
       const nextIndex = index + (event.key === "ArrowUp" ? -1 : 1);
       if (nextIndex < 0 || nextIndex >= visible.length) return;
       if (event.shiftKey) {
-        const next = reorderTasks(tasks, settings, visible[index].id, visible[nextIndex].id);
+        const next = reorderTasks(scopedTasks, settings, visible[index].id, visible[nextIndex].id);
         if (next) {
-          saveOrder(next);
+          saveOrder([...tasks.filter((t) => !next.some((item) => item.id === t.id)), ...next]);
           setNotice("순서를 저장했습니다. 사용자 지정 정렬로 전환했습니다.");
         }
       } else {
@@ -180,24 +200,25 @@ export default function App() {
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [ready, updating, selectedId, visible, tasks, settings]);
+  }, [ready, updating, sidebarOpen, selectedId, visible, tasks, scopedTasks, settings]);
   function add() {
     if (!ready || updating || Date.now() - lastAdd.current < 500) return;
     lastAdd.current = Date.now();
-    const blank = tasks.find((t) => !t.title.trim() && !t.completed);
+    const blank = scopedTasks.find((t) => !t.title.trim() && !t.completed);
     if (blank) {
       setFocusId(null);
       requestAnimationFrame(() => setFocusId(blank.id));
       return;
     }
     const task = newTask(Math.max(-1, ...tasks.map((t) => t.sortOrder)) + 1);
+    task.pageId = selectedPage === "all" ? null : selectedPage;
     setFocusId(task.id);
     addTask(task);
   }
   useEffect(() => {
     const onEnter = (event: KeyboardEvent) => {
       if (
-        event.key !== "Enter" ||
+        event.key !== "Enter" || sidebarOpen ||
         event.isComposing ||
         !window.matchMedia("(pointer: fine)").matches ||
         event.altKey ||
@@ -208,7 +229,7 @@ export default function App() {
       const target = event.target;
       if (
         target instanceof HTMLElement &&
-        (target.isContentEditable ||
+        (target.isContentEditable || sidebarOpen ||
           target.closest("input, textarea, select, button, a, [role='button'], [role='dialog']"))
       ) return;
       event.preventDefault();
@@ -241,6 +262,8 @@ export default function App() {
           selected={selectedId === task.id}
           onSelect={() => setSelectedId(task.id)}
           onDelete={() => setDeleteId(task.id)}
+          pages={pages}
+          showPage={selectedPage === "all"}
         />
       ))}
     </SortableContext>
@@ -252,9 +275,11 @@ export default function App() {
     weekday: "long",
   });
   return (
-    <div className="notebook">
+    <div className={`notebook ${sidebarOpen ? "sidebar-open" : ""}`}>
       <header className="app-header">
         <div className="brand-group">
+          <button className="page-toggle icon-button" aria-label="페이지 목록 열기" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(true)}><Menu size={22} /></button>
+          <div>
           <a
             className="brand"
             href={import.meta.env.BASE_URL}
@@ -266,6 +291,7 @@ export default function App() {
             Yellow Note<span className="brand-dot">.</span>
           </a>
           <span className="brand-caption">MY EVERYDAY NOTE</span>
+          </div>
         </div>
         <nav aria-label="노트 도구">
           <button
@@ -289,7 +315,7 @@ export default function App() {
         </nav>
         <div className="header-meta">
           <span className="task-counts">
-            나의 할 일 <b>{tasks.filter((t) => !t.completed).length}</b>
+            {pageTitle} <b>{scopedTasks.filter((t) => !t.completed).length}</b>
             <span className="completed-count">완료 {completed}</span>
           </span>
           <time dateTime={today}>{dateText}</time>
@@ -333,12 +359,12 @@ export default function App() {
             <div className="empty-state">
               <BookOpen size={37} strokeWidth={1} />
               <h2>
-                {tasks.length
+                {scopedTasks.length
                   ? "해야 할 일을 모두 마쳤어요."
                   : "가벼운 마음으로, 첫 줄부터."}
               </h2>
               <p>
-                {tasks.length
+                {scopedTasks.length
                   ? "완료한 기록은 설정에서 다시 볼 수 있어요."
                   : "아래 + 버튼을 눌러 오늘의 할 일을 적어 보세요."}
               </p>
@@ -407,6 +433,7 @@ export default function App() {
       {panel === "sort" && (
         <SortDialog settings={settings} onClose={() => setPanel(null)} />
       )}
+      {sidebarOpen && <PageSidebar pages={pages} tasks={tasks} selected={selectedPage} onSelect={choosePage} onClose={closeSidebar} />}
       {panel === "settings" && (
         <SettingsDialog
           onClose={() => setPanel(null)}

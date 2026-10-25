@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
 import { describe, expect, it } from "vitest";
-import { defaults, type Task } from "../src/types";
+import { defaults, type Task, type Page } from "../src/types";
+import Dexie from "dexie";
 import {
   dDay,
   dayDifference,
@@ -11,7 +12,7 @@ import {
 } from "../src/lib/tasks";
 import { makeBackup, parseBackup, validDate } from "../src/lib/backup";
 import { NoteDatabase, replaceDatabase } from "../src/data/db";
-import { mergeCloudData } from "../src/lib/cloud";
+import { mergeCloudData, parseCloudData } from "../src/lib/cloud";
 const task = (patch: Partial<Task> = {}): Task => ({
   ...newTask(0),
   title: "산림사업 설계서 검토",
@@ -23,7 +24,7 @@ describe("Drive 데이터 합치기", () => {
   it("다른 기기의 새 할 일을 보존하고 삭제된 할 일을 되살리지 않음", () => {
     const removed = task();
     const added = task({ id: crypto.randomUUID(), title: "다른 기기 할 일" });
-    const local = { app: "yellow-note-sync" as const, version: 1 as const, tasks: [removed], settings: defaults, deleted: [] };
+    const local = { app: "yellow-note-sync" as const, version: 2 as const, tasks: [removed], settings: defaults, deleted: [], pages: [] };
     const remote = { ...local, tasks: [added], deleted: [{ id: removed.id, deletedAt: "2026-10-21T01:00:00.000Z" }] };
     const result = mergeCloudData(local, remote);
     expect(result.tasks.map((item) => item.id)).toEqual([added.id]);
@@ -32,11 +33,32 @@ describe("Drive 데이터 합치기", () => {
   it("나중에 수정한 할 일과 설정을 선택함", () => {
     const older = task();
     const newer = { ...older, title: "수정됨", updatedAt: "2026-10-22T01:00:00.000Z" };
-    const local = { app: "yellow-note-sync" as const, version: 1 as const, tasks: [newer], settings: { ...defaults, updatedAt: "2026-10-22T01:00:00.000Z" }, deleted: [] };
+    const local = { app: "yellow-note-sync" as const, version: 2 as const, tasks: [newer], settings: { ...defaults, updatedAt: "2026-10-22T01:00:00.000Z" }, deleted: [], pages: [] };
     const remote = { ...local, tasks: [older], settings: defaults };
     const result = mergeCloudData(local, remote);
     expect(result.tasks[0].title).toBe("수정됨");
     expect(result.settings.updatedAt).toBe(local.settings.updatedAt);
+  });
+  it("삭제된 페이지의 할 일은 미분류로 보존함", () => {
+    const page: Page = { id: crypto.randomUUID(), name: "업무", sortOrder: 0, updatedAt: "2026-10-20T01:00:00.000Z", deletedAt: null };
+    const removed = { ...page, updatedAt: "2026-10-22T01:00:00.000Z", deletedAt: "2026-10-22T01:00:00.000Z" };
+    const local = { app: "yellow-note-sync" as const, version: 2 as const, tasks: [task({ pageId: page.id })], settings: defaults, deleted: [], pages: [page] };
+    const result = mergeCloudData(local, { ...local, tasks: [], pages: [removed] });
+    expect(result.pages[0].deletedAt).toBe(removed.deletedAt);
+    expect(result.tasks[0].pageId).toBeNull();
+  });
+  it("다른 페이지 사이로 할 일을 드래그해 옮기지 않음", () => {
+    const first = task({ pageId: crypto.randomUUID() });
+    const second = task({ id: crypto.randomUUID(), pageId: crypto.randomUUID() });
+    expect(reorderTasks([first, second], defaults, first.id, second.id)).toBeNull();
+  });
+  it("이전 Drive 동기화 파일의 할 일은 미분류로 읽음", () => {
+    const oldTask = { ...task() } as Partial<Task>;
+    delete oldTask.pageId;
+    const parsed = parseCloudData({ app: "yellow-note-sync", version: 1, tasks: [oldTask], settings: defaults, deleted: [] });
+    expect(parsed.version).toBe(2);
+    expect(parsed.tasks[0].pageId).toBeNull();
+    expect(parsed.pages).toEqual([]);
   });
 });
 describe("현지 날짜와 D-day", () => {
@@ -151,6 +173,12 @@ describe("백업과 IndexedDB", () => {
     );
     expect(parseBackup(JSON.stringify(b))).toEqual(b);
   });
+  it("페이지와 소속 할 일을 백업에서 함께 복원함", () => {
+    const page: Page = { id: crypto.randomUUID(), name: "공부", sortOrder: 0, updatedAt: "2026-10-20T01:00:00.000Z", deletedAt: null };
+    const backup = makeBackup([task({ pageId: page.id })], defaults, [page]);
+    expect(parseBackup(JSON.stringify(backup))).toEqual(backup);
+    expect(() => parseBackup(JSON.stringify({ ...backup, pages: [] }))).toThrow();
+  });
   it.each([
     "invalid-json",
     "version",
@@ -165,7 +193,7 @@ describe("백업과 IndexedDB", () => {
     let raw: unknown = b;
     if (kind === "invalid-json")
       return expect(() => parseBackup("{")).toThrow();
-    if (kind === "version") raw = { ...b, version: 2 };
+    if (kind === "version") raw = { ...b, version: 99 };
     if (kind === "duplicate") b.tasks.push(b.tasks[0]);
     if (kind === "date") b.tasks[0].dueDate = "2026-02-31";
     if (kind === "priority")
@@ -194,6 +222,26 @@ describe("백업과 IndexedDB", () => {
     await database.tasks.delete(backup.tasks[0].id);
     expect(await database.tasks.count()).toBe(0);
     await database.delete();
+  });
+  it("이전 DB의 할 일을 미분류로 이전함", async () => {
+    const name = `migration-${crypto.randomUUID()}`;
+    const old = new Dexie(name);
+    old.version(2).stores({ tasks: "id, createdAt, sortOrder", settings: "id", deleted: "id" });
+    const previous = { ...task() } as Record<string, unknown>;
+    delete previous.pageId;
+    await old.table("tasks").put(previous);
+    old.close();
+    const upgraded = new NoteDatabase(name);
+    expect((await upgraded.tasks.get(previous.id as string))?.pageId).toBeNull();
+    await upgraded.delete();
+  });
+  it("버전 1 백업은 미분류로 불러옴", () => {
+    const old = { ...makeBackup([task()], defaults), version: 1, pages: undefined, tasks: [task()] };
+    old.tasks[0] = { ...old.tasks[0] };
+    delete (old.tasks[0] as Partial<Task>).pageId;
+    const result = parseBackup(JSON.stringify(old));
+    expect(result.version).toBe(2);
+    expect(result.tasks[0].pageId).toBeNull();
   });
   it("복원 트랜잭션 실패 시 기존 데이터 보존", async () => {
     const database = new NoteDatabase(`test-${crypto.randomUUID()}`),

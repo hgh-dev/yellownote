@@ -12,6 +12,14 @@ export interface Task {
   updatedAt: string;
   completedAt: string | null;
   sortOrder: number;
+  pageId: string | null;
+}
+export interface Page {
+  id: string;
+  name: string;
+  sortOrder: number;
+  updatedAt: string;
+  deletedAt: string | null;
 }
 export interface Settings {
   id: "preferences";
@@ -29,8 +37,9 @@ export const defaults: Settings = {
 };
 export interface Backup {
   app: "yellow-note";
-  version: 1;
+  version: 2;
   exportedAt: string;
   tasks: Task[];
   settings: Settings;
+  pages: Page[];
 }

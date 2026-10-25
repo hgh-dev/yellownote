@@ -41,6 +41,7 @@ test("한 줄 제목과 화면 너비에 따른 행 배치", async ({ page }) =>
 test("PC에서 Enter로 새 줄을 만들고 제목 Enter는 편집을 마친다", async ({ page }) => {
   test.skip(test.info().project.name === "mobile", "PC 키보드 단축키");
   await page.goto("/");
+  await expect(page.getByRole("button", { name: "새 할 일 추가" })).toBeEnabled();
   await page.keyboard.press("Enter");
   const titles = page.getByLabel("할 일 제목", { exact: true });
   await expect(titles).toHaveCount(1);
@@ -223,7 +224,7 @@ test("정렬 기준과 방향, 목록 선택 단축키, 기한 삭제", async ({
     ["우선순위", "낮은 순"],
     ["등록일", "오래된 순"],
   ]) {
-    await page.getByRole("button", { name: "정렬", exact: true }).click();
+    await page.locator(".current-sort").click();
     await page.getByRole("dialog", { name: "할 일 정렬" }).getByRole("button", { name: criterion, exact: true }).click();
     await page.getByRole("dialog", { name: "할 일 정렬" }).getByRole("button", { name: direction, exact: true }).click();
     await page.getByRole("button", { name: "닫기", exact: true }).click();
@@ -290,7 +291,7 @@ test("마우스 드래그 및 320·768·1440px 화면 검증", async ({
   await page.goto("/");
   const headerBottom = (await page.locator(".app-header").boundingBox())!.y +
     (await page.locator(".app-header").boundingBox())!.height;
-  expect((await page.locator(".list-summary").boundingBox())!.y).toBe(headerBottom);
+  expect((await page.locator(".task-section").boundingBox())!.y).toBe(headerBottom);
   for (const name of [
     "산림사업 설계서 검토",
     "현장 확인 일정 정리",
@@ -413,4 +414,39 @@ test("모바일 터치 손잡이 드래그", async ({ page, context }, testInfo)
   await expect(
     page.getByLabel("할 일 제목", { exact: true }).first(),
   ).toHaveValue("터치 둘째");
+});
+test("페이지 생성, 할 일 이동, 이름 변경과 삭제", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "새 할 일 추가" })).toBeEnabled();
+  await page.getByRole("button", { name: "페이지 목록 열기" }).click();
+  await page.getByLabel("새 페이지").fill("업무");
+  await page.getByRole("button", { name: "페이지 추가" }).click();
+  await expect(page.locator(".task-counts")).toContainText("업무");
+  await page.getByRole("button", { name: "새 할 일 추가" }).click();
+  await page.getByLabel("할 일 제목").fill("회의 준비");
+  await page.getByLabel("할 일 제목").blur();
+  await page.getByRole("button", { name: "페이지 목록 열기" }).click();
+  await page.getByLabel("새 페이지").fill("집안일");
+  await page.getByRole("button", { name: "페이지 추가" }).click();
+  await expect(page.locator(".task-counts")).toContainText("집안일");
+  await page.getByRole("button", { name: "새 할 일 추가" }).click();
+  await page.getByLabel("할 일 제목").fill("청소하기");
+  await page.getByLabel("할 일 제목").blur();
+  await page.getByRole("button", { name: "페이지 목록 열기" }).click();
+  await page.getByRole("button", { name: /모든 할 일/ }).click();
+  await expect(page.getByLabel("할 일 제목")).toHaveCount(2);
+  await expect(page.locator(".task-page-label")).toContainText(["업무", "집안일"]);
+  await page.getByRole("button", { name: "회의 준비 더보기" }).click();
+  await page.getByRole("combobox", { name: "회의 준비 페이지 이동" }).selectOption({ label: "집안일" });
+  await page.reload();
+  await expect(page.locator(".task-page-label")).toContainText(["집안일", "집안일"]);
+  await page.getByRole("button", { name: "페이지 목록 열기" }).click();
+  await page.getByRole("button", { name: "업무 이름 변경" }).click();
+  await page.getByLabel("페이지 이름 변경").fill("회사");
+  await page.getByRole("button", { name: "이름 저장" }).click();
+  await expect(page.getByRole("button", { name: "회사 삭제" })).toBeVisible();
+  await page.getByRole("button", { name: "회사 삭제" }).click();
+  await page.getByRole("dialog", { name: "페이지를 삭제하시겠습니까?" }).getByRole("button", { name: "페이지 삭제" }).click();
+  await expect(page.getByRole("button", { name: "회사 삭제" })).toHaveCount(0);
+  await expect(page.getByLabel("할 일 제목")).toHaveCount(2);
 });

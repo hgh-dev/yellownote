@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Task, Priority } from "../types";
+import type { Task, Priority, Page } from "../types";
 import { updateTask, flush } from "../data/store";
 import { dDay, dayDifference } from "../lib/tasks";
 import { validDate } from "../lib/backup";
@@ -28,6 +28,8 @@ export function TaskRow({
   selected,
   onSelect,
   onDelete,
+  pages,
+  showPage,
 }: {
   task: Task;
   today: string;
@@ -35,6 +37,8 @@ export function TaskRow({
   selected: boolean;
   onSelect: () => void;
   onDelete: () => void;
+  pages: Page[];
+  showPage: boolean;
 }) {
   const [memoOpen, setMemoOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -265,6 +269,11 @@ export function TaskRow({
             <Pin size={17} fill={task.pinned ? "currentColor" : "none"} />
             {task.pinned ? "고정 해제" : "상단 고정"}
           </button>
+          <label className="page-move-label" htmlFor={`page-move-${task.id}`}>페이지 이동</label>
+          <select id={`page-move-${task.id}`} className="page-move-select" aria-label={`${label} 페이지 이동`} value={task.pageId || ""} onChange={(event) => { updateTask(task.id, { pageId: event.target.value || null }, true); setMenuOpen(false); }}>
+            <option value="">미분류</option>
+            {pages.filter((page) => !page.deletedAt).sort((a, b) => a.sortOrder - b.sortOrder).map((page) => <option key={page.id} value={page.id}>{page.name}</option>)}
+          </select>
           <button
             className="menu-action delete"
             aria-label={`${label} 삭제`}
@@ -279,6 +288,7 @@ export function TaskRow({
           </div>}
         </div>
       </div>
+      {showPage && <div className="task-page-label">{pages.find((p) => p.id === task.pageId)?.name || "미분류"}</div>}
       {memoOpen && (
         <div className="memo-area" id={`memo-${task.id}`}>
           <textarea

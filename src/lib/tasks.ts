@@ -28,6 +28,7 @@ export function newTask(sortOrder: number): Task {
     updatedAt: now,
     completedAt: null,
     sortOrder,
+    pageId: null,
   };
 }
 export function sortedTasks(tasks: Task[], settings: Settings): Task[] {
@@ -74,7 +75,7 @@ export function reorderTasks(
   const visible = sortedTasks(tasks, settings);
   const active = visible.find((t) => t.id === activeId),
     over = visible.find((t) => t.id === overId);
-  if (!active || !over || active.pinned !== over.pinned || activeId === overId)
+  if (!active || !over || active.pageId !== over.pageId || active.pinned !== over.pinned || activeId === overId)
     return null;
   if (settings.completedSort && settings.completedSort !== "include" && active.completed !== over.completed)
     return null;

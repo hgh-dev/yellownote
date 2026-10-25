@@ -19,7 +19,7 @@ export function SettingsDialog({
   installEvent: InstallEvent | null;
   onInstall: () => void;
 }) {
-  const { tasks, settings } = useNote();
+  const { tasks, settings, pages } = useNote();
   const input = useRef<HTMLInputElement>(null);
   const [candidate, setCandidate] = useState<Backup | null>(null),
     [message, setMessage] = useState(""),
@@ -47,7 +47,7 @@ export function SettingsDialog({
   function download() {
     // Export the current in-memory content even if browser storage is full.
     const url = URL.createObjectURL(
-      new Blob([JSON.stringify(makeBackup(tasks, settings), null, 2)], {
+      new Blob([JSON.stringify(makeBackup(tasks, settings, pages), null, 2)], {
         type: "application/json;charset=utf-8",
       }),
     );
@@ -148,8 +148,8 @@ export function SettingsDialog({
           <div className="restore-confirm" role="alert">
             <strong>기존 노트를 덮어쓰시겠습니까?</strong>
             <p>
-              현재 할 일 {tasks.length}개와 설정이 백업의 할 일{" "}
-              {candidate.tasks.length}개와 설정으로 교체됩니다. 먼저 현재 노트를
+              현재 할 일 {tasks.length}개와 페이지 {pages.filter((p) => !p.deletedAt).length}개가 백업의 할 일{" "}
+              {candidate.tasks.length}개와 페이지 {candidate.pages.filter((p) => !p.deletedAt).length}개로 교체됩니다. 먼저 현재 노트를
               내보내는 것을 권장합니다.
             </p>
             <div className="button-pair">
