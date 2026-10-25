@@ -1,8 +1,31 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash2, X } from "lucide-react";
+import { GripVertical, Pencil, Plus, Trash2, X } from "lucide-react";
+import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { Page, Task } from "../types";
-import { addPage, deletePage, movePage, renamePage } from "../data/store";
+import { addPage, deletePage, reorderPages, renamePage } from "../data/store";
 import { Dialog } from "./Dialog";
+
+function PageItem({ page, count, selected, editMode, onSelect, onRename, onDelete }: {
+  page: Page;
+  count: number;
+  selected: boolean;
+  editMode: boolean;
+  onSelect: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: page.id, disabled: !editMode });
+  return <div ref={setNodeRef} className={`page-item ${editMode ? "editing" : ""} ${isDragging ? "dragging" : ""}`} style={{ transform: CSS.Transform.toString(transform), transition }}>
+    {editMode && <button ref={setActivatorNodeRef} className="page-drag-handle" {...attributes} {...listeners} aria-label={`${page.name} 순서 이동`} title="드래그해서 페이지 순서 변경"><GripVertical size={18} /></button>}
+    <button className={`page-entry ${selected ? "active" : ""}`} onClick={onSelect}><span>{page.name}</span>{!editMode && <b>{count}</b>}</button>
+    {editMode && <div className="page-tools">
+      <button aria-label={`${page.name} 이름 변경`} title="이름 변경" onClick={onRename}><Pencil size={16} /></button>
+      <button aria-label={`${page.name} 삭제`} title="삭제" onClick={onDelete}><Trash2 size={16} /></button>
+    </div>}
+  </div>;
+}
 
 export function PageSidebar({ pages, tasks, selected, onSelect, onClose }: {
   pages: Page[];
@@ -19,6 +42,13 @@ export function PageSidebar({ pages, tasks, selected, onSelect, onClose }: {
   const first = useRef<HTMLButtonElement>(null);
   const sidebar = useRef<HTMLElement>(null);
   const active = pages.filter((p) => !p.deletedAt).sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  function dragEnd(event: DragEndEvent) {
+    if (event.over && event.active.id !== event.over.id) reorderPages(String(event.active.id), String(event.over.id));
+  }
 
   useEffect(() => { first.current?.focus(); }, []);
   useEffect(() => {
@@ -65,17 +95,13 @@ export function PageSidebar({ pages, tasks, selected, onSelect, onClose }: {
     <aside ref={sidebar} className="page-sidebar" aria-label="페이지 목록">
       <header className="page-sidebar-head"><strong>페이지</strong><button className="icon-button" aria-label="페이지 목록 닫기" onClick={onClose}><X size={19} /></button></header>
       <nav aria-label="페이지 선택">
-        <button ref={first} className={`page-entry ${selected === "all" ? "active" : ""}`} onClick={() => choose("all")}><span>모든 할 일</span><b>{count("all")}</b></button>
-        <button className={`page-entry ${selected === null ? "active" : ""}`} onClick={() => choose(null)}><span>미분류</span><b>{count(null)}</b></button>
-        {active.map((page, index) => <div className="page-item" key={page.id}>
-          <button className={`page-entry ${selected === page.id ? "active" : ""}`} onClick={() => choose(page.id)}><span>{page.name}</span><b>{count(page.id)}</b></button>
-          {editMode && <div className="page-tools">
-            <button aria-label={`${page.name} 이름 변경`} title="이름 변경" onClick={() => openNameDialog(page.id)}><Pencil size={14} /></button>
-            <button aria-label={`${page.name} 위로`} title="위로" disabled={index === 0} onClick={() => movePage(page.id, -1)}><ArrowUp size={14} /></button>
-            <button aria-label={`${page.name} 아래로`} title="아래로" disabled={index === active.length - 1} onClick={() => movePage(page.id, 1)}><ArrowDown size={14} /></button>
-            <button aria-label={`${page.name} 삭제`} title="삭제" onClick={() => setRemoveId(page.id)}><Trash2 size={14} /></button>
-          </div>}
-        </div>)}
+        <button ref={first} className={`page-entry ${selected === "all" ? "active" : ""}`} onClick={() => choose("all")}><span>모든 할 일</span>{!editMode && <b>{count("all")}</b>}</button>
+        <button className={`page-entry ${selected === null ? "active" : ""}`} onClick={() => choose(null)}><span>미분류</span>{!editMode && <b>{count(null)}</b>}</button>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={dragEnd}>
+          <SortableContext items={active.map((page) => page.id)} strategy={verticalListSortingStrategy}>
+            {active.map((page) => <PageItem key={page.id} page={page} count={count(page.id)} selected={selected === page.id} editMode={editMode} onSelect={() => choose(page.id)} onRename={() => openNameDialog(page.id)} onDelete={() => setRemoveId(page.id)} />)}
+          </SortableContext>
+        </DndContext>
       </nav>
       <div className="page-sidebar-actions">
         <button onClick={() => openNameDialog("new")}><Plus size={17} />페이지 추가</button>

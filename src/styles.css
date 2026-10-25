@@ -982,9 +982,14 @@ textarea {
 .page-entry span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .page-entry b { font-weight: 500; font-size: 11px; color: #8b7446; margin-left: 6px; }
 .page-entry:hover, .page-entry.active { background: #dfc66f77; }
-.page-item { border-top: 1px solid #c9b46666; padding-top: 3px; }
-.page-tools { display: flex; justify-content: flex-end; gap: 2px; padding: 0 6px 4px; }
-.page-tools button { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 4px; color: #86754b; }
+.page-item { position: relative; border-top: 1px solid #c9b46666; padding-top: 3px; }
+.page-item.editing { display: flex; align-items: center; }
+.page-item.dragging { z-index: 2; background: #ffeda3; box-shadow: 0 3px 10px #5a4c2426; }
+.page-item.editing .page-entry { flex: 1; min-width: 0; padding-left: 4px; }
+.page-drag-handle { display: grid; place-items: center; flex: 0 0 28px; width: 28px; height: 40px; color: #86754b; cursor: grab; touch-action: none; }
+.page-drag-handle:active { cursor: grabbing; }
+.page-tools { display: flex; flex: 0 0 auto; gap: 2px; }
+.page-tools button { display: grid; place-items: center; width: 30px; height: 36px; border-radius: 4px; color: #86754b; }
 .page-tools button:hover { background: #dfc66f77; }
 .page-tools button:disabled { opacity: .35; }
 .page-sidebar-actions { flex: 0 0 auto; display: grid; gap: 6px; padding-top: 14px; border-top: 1px solid #c9b466; }

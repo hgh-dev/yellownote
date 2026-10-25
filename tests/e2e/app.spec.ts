@@ -455,12 +455,19 @@ test("페이지 생성, 할 일 이동, 이름 변경과 삭제", async ({ page 
   await page.getByRole("button", { name: "페이지 목록 열기" }).click();
   await expect(page.getByRole("button", { name: "업무 이름 변경" })).toHaveCount(0);
   await page.getByRole("button", { name: "페이지 수정" }).click();
+  await expect(page.locator(".page-entry b")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "업무 순서 이동" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "업무 위로" })).toHaveCount(0);
+  const nameBox = await page.locator(".page-item").filter({ hasText: "업무" }).locator(".page-entry").boundingBox();
+  const editBox = await page.getByRole("button", { name: "업무 이름 변경" }).boundingBox();
+  expect(Math.abs((nameBox!.y + nameBox!.height / 2) - (editBox!.y + editBox!.height / 2))).toBeLessThanOrEqual(3);
   await page.getByRole("button", { name: "업무 이름 변경" }).click();
   await page.getByRole("dialog", { name: "페이지 이름 변경" }).getByLabel("페이지 이름").fill("회사");
   await page.getByRole("dialog", { name: "페이지 이름 변경" }).getByRole("button", { name: "저장" }).click();
   await expect(page.getByRole("button", { name: "회사 삭제" })).toBeVisible();
   await page.getByRole("button", { name: "수정 완료" }).click();
   await expect(page.getByRole("button", { name: "회사 삭제" })).toHaveCount(0);
+  await expect(page.locator(".page-entry b")).not.toHaveCount(0);
   await page.getByRole("button", { name: "페이지 수정" }).click();
   await page.getByRole("button", { name: "회사 삭제" }).click();
   await page.getByRole("dialog", { name: "페이지를 삭제하시겠습니까?" }).getByRole("button", { name: "페이지 삭제" }).click();
@@ -483,4 +490,37 @@ test("페이지 이름은 화면의 정확한 중앙에 표시", async ({ page }
   await expect(heading).toHaveText("미분류");
   const box = await heading.boundingBox();
   expect(Math.abs(box!.x + box!.width / 2 - 393 / 2)).toBeLessThanOrEqual(1);
+});
+test("페이지 수정에서 손잡이로 순서를 바꾸고 재접속 후 유지", async ({ page, context }, testInfo) => {
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "새 할 일 추가" })).toBeEnabled();
+  for (const name of ["업무", "공부"]) {
+    if (!(await page.locator(".page-sidebar").isVisible())) await page.getByRole("button", { name: "페이지 목록 열기" }).click();
+    await page.getByRole("button", { name: "페이지 추가" }).click();
+    const dialog = page.getByRole("dialog", { name: "새 페이지 만들기" });
+    await dialog.getByLabel("페이지 이름").fill(name);
+    await dialog.getByRole("button", { name: "만들기" }).click();
+  }
+  if (!(await page.locator(".page-sidebar").isVisible())) await page.getByRole("button", { name: "페이지 목록 열기" }).click();
+  await page.getByRole("button", { name: "페이지 수정" }).click();
+  const names = page.locator(".page-item .page-entry span");
+  await expect(names).toHaveText(["업무", "공부"]);
+  const from = (await page.getByRole("button", { name: "공부 순서 이동" }).boundingBox())!;
+  const to = (await page.locator(".page-item").filter({ hasText: "업무" }).boundingBox())!;
+  const x = from.x + from.width / 2, y = from.y + from.height / 2, end = to.y + to.height / 2;
+  if (testInfo.project.name === "mobile") {
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+    for (let i = 1; i <= 12; i++) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y + ((end - y) * i) / 12 }] });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  } else {
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, end, { steps: 12 });
+    await page.mouse.up();
+  }
+  await expect(names).toHaveText(["공부", "업무"]);
+  await page.reload();
+  await page.getByRole("button", { name: "페이지 목록 열기" }).click();
+  await expect(page.locator(".page-item .page-entry span")).toHaveText(["공부", "업무"]);
 });

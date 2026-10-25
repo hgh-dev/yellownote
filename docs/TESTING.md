@@ -6,9 +6,9 @@
 
 | 검사 | 결과 |
 | --- | --- |
-| `npm test` | 45개 통과 (2개 테스트 파일) |
+| `npm test` | 46개 통과 (2개 테스트 파일) |
 | `npm run build` | TypeScript 검사, Vite 빌드, PWA 서비스 워커 생성 성공 |
-| `PLAYWRIGHT_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e` | 18개 통과, 기기 조건에 따른 2개 제외 |
+| `PLAYWRIGHT_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e` | 22개 통과, 기기 조건에 따른 2개 제외 |
 | GitHub Pages `/yellownote/` 하위 경로 빌드 | 성공, HTML 자산·Manifest start_url/scope·SW fallback·아이콘 파일 확인 |
 | GitHub Actions 실제 배포 | `hgh-dev/yellownote`의 build·deploy 성공, 공개 주소 로드 확인 |
 | 의존성 보안 검사 | 업데이트 후 npm 보고 취약점 0개 |
@@ -30,6 +30,7 @@
 - IndexedDB 재연결, 복원 트랜잭션 실패 시 원래 데이터 유지.
 - 기존 DB·백업·Drive 동기화 형식의 할 일을 미분류로 이전하고, 새 백업에 페이지와 할 일의 소속을 함께 보관.
 - 페이지 생성·이름 변경·삭제, 선택한 페이지에서 할 일 생성, 다른 페이지로 이동, 삭제 후 미분류 보존을 데스크톱·모바일에서 확인.
+- 페이지 수정 모드에서 숫자 숨김·인라인 관리 버튼·여섯 점 손잡이를 확인하고, 마우스와 터치 드래그로 바꾼 순서가 재접속 후 유지되는지 확인.
 - 빠른 연속 입력의 최종값 보존 및 저장 실패 후 재시도.
 - 320px, 768px, 1440px에서 가로 넘침이 없음을 확인.
 - 최종 화면의 노란 배경, 이중 여백선, 줄 간격, 메모와 빨간 취소선을 캡처로 확인.

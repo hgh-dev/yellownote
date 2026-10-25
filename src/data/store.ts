@@ -219,16 +219,18 @@ export function renamePage(id: string, name: string) {
   pendingPages.set(id, page);
   schedule(true);
 }
-export function movePage(id: string, direction: -1 | 1) {
-  const ordered = state.pages.filter((p) => !p.deletedAt).sort((a, b) => a.sortOrder - b.sortOrder);
-  const index = ordered.findIndex((p) => p.id === id);
-  const other = ordered[index + direction];
-  if (index < 0 || !other) return;
+export function reorderPages(activeId: string, overId: string) {
+  const ordered = state.pages.filter((p) => !p.deletedAt).sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
+  const from = ordered.findIndex((p) => p.id === activeId);
+  const to = ordered.findIndex((p) => p.id === overId);
+  if (from < 0 || to < 0 || from === to) return;
+  const [moved] = ordered.splice(from, 1);
+  ordered.splice(to, 0, moved);
   const now = new Date().toISOString();
-  const first = { ...ordered[index], sortOrder: other.sortOrder, updatedAt: now };
-  const second = { ...other, sortOrder: ordered[index].sortOrder, updatedAt: now };
-  emit({ pages: state.pages.map((p) => p.id === first.id ? first : p.id === second.id ? second : p) });
-  pendingPages.set(first.id, first); pendingPages.set(second.id, second);
+  const changed = new Map(ordered.map((p, index) => [p.id, p.sortOrder === index ? p : { ...p, sortOrder: index, updatedAt: now }]));
+  const previous = state.pages;
+  emit({ pages: state.pages.map((p) => changed.get(p.id) || p) });
+  changed.forEach((page, id) => { if (previous.find((old) => old.id === id) !== page) pendingPages.set(id, page); });
   schedule(true);
 }
 export function deletePage(id: string) {

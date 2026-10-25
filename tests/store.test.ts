@@ -13,6 +13,7 @@ import {
   renamePage,
   deletePage,
   getNote,
+  reorderPages,
 } from "../src/data/store";
 const memory = new Map<string, string>();
 vi.stubGlobal("localStorage", {
@@ -85,4 +86,14 @@ it("페이지에 할 일을 넣고 이름 변경·삭제해도 할 일은 미분
   expect(getNote().tasks.find((item) => item.id === t.id)?.pageId).toBeNull();
   expect((await db.tasks.get(t.id))?.pageId).toBeNull();
   expect((await db.pages.get(id))?.deletedAt).toBeTruthy();
+});
+it("페이지 드래그 순서를 저장하고 다시 읽음", async () => {
+  const first = addPage("공부");
+  const second = addPage("집안일");
+  await flush();
+  reorderPages(second, first);
+  await flush();
+  const ordered = getNote().pages.filter((p) => !p.deletedAt).sort((a, b) => a.sortOrder - b.sortOrder);
+  expect(ordered.findIndex((p) => p.id === second)).toBeLessThan(ordered.findIndex((p) => p.id === first));
+  expect((await db.pages.get(second))?.sortOrder).toBeLessThan((await db.pages.get(first))!.sortOrder);
 });
