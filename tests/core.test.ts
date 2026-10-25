@@ -13,6 +13,7 @@ import {
 import { makeBackup, parseBackup, validDate } from "../src/lib/backup";
 import { NoteDatabase, replaceDatabase } from "../src/data/db";
 import { mergeCloudData, parseCloudData } from "../src/lib/cloud";
+import { planFirebaseSync } from "../src/lib/syncPlan";
 const task = (patch: Partial<Task> = {}): Task => ({
   ...newTask(0),
   title: "산림사업 설계서 검토",
@@ -20,7 +21,7 @@ const task = (patch: Partial<Task> = {}): Task => ({
   updatedAt: "2026-10-20T01:00:00.000Z",
   ...patch,
 });
-describe("Drive 데이터 합치기", () => {
+describe("기기 간 동기화 데이터 합치기", () => {
   it("다른 기기의 새 할 일을 보존하고 삭제된 할 일을 되살리지 않음", () => {
     const removed = task();
     const added = task({ id: crypto.randomUUID(), title: "다른 기기 할 일" });
@@ -47,18 +48,46 @@ describe("Drive 데이터 합치기", () => {
     expect(result.pages[0].deletedAt).toBe(removed.deletedAt);
     expect(result.tasks[0].pageId).toBeNull();
   });
+  it("페이지 문서가 아직 도착하지 않았을 때 할 일의 페이지 소속을 유지함", () => {
+    const pageId = crypto.randomUUID();
+    const local = { app: "yellow-note-sync" as const, version: 2 as const, tasks: [], settings: defaults, deleted: [], pages: [] };
+    const remote = { ...local, tasks: [task({ pageId })] };
+    expect(mergeCloudData(local, remote).tasks[0].pageId).toBe(pageId);
+  });
   it("다른 페이지 사이로 할 일을 드래그해 옮기지 않음", () => {
     const first = task({ pageId: crypto.randomUUID() });
     const second = task({ id: crypto.randomUUID(), pageId: crypto.randomUUID() });
     expect(reorderTasks([first, second], defaults, first.id, second.id)).toBeNull();
   });
-  it("이전 Drive 동기화 파일의 할 일은 미분류로 읽음", () => {
+  it("이전 동기화 형식의 할 일은 미분류로 읽음", () => {
     const oldTask = { ...task() } as Partial<Task>;
     delete oldTask.pageId;
     const parsed = parseCloudData({ app: "yellow-note-sync", version: 1, tasks: [oldTask], settings: defaults, deleted: [] });
     expect(parsed.version).toBe(2);
     expect(parsed.tasks[0].pageId).toBeNull();
     expect(parsed.pages).toEqual([]);
+  });
+});
+describe("Firebase 동기화 계획", () => {
+  it("서로 다른 기기에서 만든 할 일을 합치고 필요한 항목만 업로드함", () => {
+    const localTask = task({ title: "휴대폰 할 일" });
+    const remoteTask = task({ id: crypto.randomUUID(), title: "회사 할 일" });
+    const local = { app: "yellow-note-sync" as const, version: 2 as const, tasks: [localTask], settings: defaults, deleted: [], pages: [] };
+    const remote = { ...local, tasks: [remoteTask] };
+    const plan = planFirebaseSync(local, remote);
+    expect(plan.combined.tasks.map((item) => item.id)).toEqual([localTask.id, remoteTask.id]);
+    expect(plan.tasksToWrite.map((item) => item.id)).toEqual([localTask.id]);
+    expect(plan.applyToLocal).toBe(true);
+  });
+  it("삭제 기록이 더 새로우면 할 일을 다시 업로드하지 않음", () => {
+    const removed = task();
+    const local = { app: "yellow-note-sync" as const, version: 2 as const, tasks: [], settings: defaults, deleted: [{ id: removed.id, deletedAt: "2026-10-22T01:00:00.000Z" }], pages: [] };
+    const remote = { ...local, tasks: [removed], deleted: [] };
+    const plan = planFirebaseSync(local, remote);
+    expect(plan.combined.tasks).toEqual([]);
+    expect(plan.tasksToWrite).toEqual([]);
+    expect(plan.tasksToDelete.map((item) => item.id)).toEqual([removed.id]);
+    expect(plan.deletionsToWrite).toEqual(local.deleted);
   });
 });
 describe("현지 날짜와 D-day", () => {
@@ -233,6 +262,11 @@ describe("백업과 IndexedDB", () => {
     old.close();
     const upgraded = new NoteDatabase(name);
     expect((await upgraded.tasks.get(previous.id as string))?.pageId).toBeNull();
+    await upgraded.meta.put({ key: "firebase-owner", value: "google-account-1" });
+    upgraded.close();
+    await upgraded.open();
+    expect((await upgraded.meta.get("firebase-owner"))?.value).toBe("google-account-1");
+    expect((await upgraded.tasks.get(previous.id as string))?.title).toBe(previous.title);
     await upgraded.delete();
   });
   it("버전 1 백업은 미분류로 불러옴", () => {

@@ -5,6 +5,7 @@ export class NoteDatabase extends Dexie {
   settings!: Table<Settings, string>;
   deleted!: Table<{ id: string; deletedAt: string }, string>;
   pages!: Table<Page, string>;
+  meta!: Table<{ key: string; value: string }, string>;
   constructor(name = "yellow-note") {
     super(name);
     // Future schema changes must add a version().stores().upgrade() migration.
@@ -24,6 +25,13 @@ export class NoteDatabase extends Dexie {
       pages: "id, sortOrder",
     }).upgrade(async (tx) => {
       await tx.table<Task>("tasks").toCollection().modify({ pageId: null });
+    });
+    this.version(4).stores({
+      tasks: "id, createdAt, sortOrder, pageId",
+      settings: "id",
+      deleted: "id",
+      pages: "id, sortOrder",
+      meta: "key",
     });
   }
 }

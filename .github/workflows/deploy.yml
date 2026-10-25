@@ -21,16 +21,15 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - run: npm run test:server
-      - run: npm run test:worker
       - uses: actions/configure-pages@v5
         id: pages
       - run: npm run build
         env:
           VITE_BASE_PATH: ${{ steps.pages.outputs.base_path }}/
-          VITE_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
-          VITE_SERVER_SYNC: ${{ vars.SERVER_SYNC }}
-          VITE_SYNC_API_URL: ${{ vars.SYNC_API_URL }}
+          VITE_FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

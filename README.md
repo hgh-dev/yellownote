@@ -2,56 +2,20 @@
 
 노란 줄노트에 할 일을 적고, 완료하면 빨간 취소선으로 지우는 개인용 PWA입니다. PWA는 웹사이트를 홈 화면에 설치하고 오프라인에서도 쓸 수 있게 만든 앱입니다. Google 계정 연결은 선택 사항입니다.
 
-## Google Drive 동기화 설정
+## Firebase 로그인과 동기화 설정
 
-현재 GitHub Pages 배포는 인증 서버 설정이 끝날 때까지 기존 로그인 방식을 사용합니다. 로그인 유지 기능을 켜도 공개 앱 주소 `https://hgh-dev.github.io/yellownote/`와 기기의 IndexedDB 기록은 그대로입니다.
+Yellow Note는 Firebase Authentication으로 Google 로그인 상태를 보관하고 Cloud Firestore에 할 일·페이지·설정을 자동 동기화합니다. 앱을 닫았다 열어도 로그인 상태가 복구되며, 로그인하지 않아도 이 기기의 IndexedDB에 기록할 수 있습니다. 앱 주소 `https://hgh-dev.github.io/yellownote/`는 유지됩니다.
 
-### 결제 등록 없이 로그인 유지: Cloudflare Workers
+1. [Firebase Console](https://console.firebase.google.com/)에서 이미 만든 `yellownote-85808` 프로젝트를 엽니다. 결제 정보가 필요 없는 **Spark** 요금제를 사용할 수 있습니다.
+2. **Authentication → Sign-in method**에서 Google 제공업체를 켜고, **Settings → Authorized domains**에 `hgh-dev.github.io`를 추가합니다.
+3. **Firestore Database**를 생성합니다. 운영 모드로 시작한 뒤 저장소의 `firestore.rules` 내용을 **Rules** 탭에 적용합니다. 규칙은 로그인한 사용자에게 자신의 데이터 경로만 읽고 쓰도록 허용합니다.
+4. 이 저장소의 앱에는 `yellownote-85808` 웹 앱 설정이 이미 연결되어 있습니다. 다른 Firebase 프로젝트를 사용하려면 GitHub 저장소 **Settings → Secrets and variables → Actions → Variables**에 `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_APP_ID`를 등록합니다. 로컬 개발에는 `.env.local`에 `.env.example`의 이름으로 넣습니다.
 
-[Cloudflare 무료 계정](https://dash.cloudflare.com/sign-up)을 만든 뒤 **본인 컴퓨터의 터미널**에서 실행하세요. Node.js가 필요합니다. Windows에서는 Git Bash를 사용할 수 있습니다. Cloudflare 로그인 창이 열리면 로그인하고, 기존 Google OAuth 웹 클라이언트의 **클라이언트 보안 비밀번호**를 터미널에만 입력하세요. 채팅이나 GitHub에 공유하지 마세요.
+첫 로그인 시 현재 기기에 저장된 기록을 해당 Firebase 계정의 Firestore 기록과 합칩니다. 이후 수정 사항은 온라인일 때 자동으로 업로드되고, 다른 기기의 변경도 자동으로 반영됩니다. 오프라인 중 수정한 내용은 이 기기에 남아 있다가 다시 온라인이 되면 동기화됩니다. 다른 Firebase 계정과 기록이 섞이지 않도록 이 기기의 노트는 첫 로그인 계정에 연결됩니다.
 
-```bash
-git clone https://github.com/hgh-dev/yellownote.git
-cd yellownote
-bash scripts/deploy-cloudflare.sh
-```
+기존 Google Drive 앱 전용 파일은 옮기거나 삭제하지 않습니다. Firebase 전환 후에는 해당 파일을 읽거나 갱신하지 않습니다. 현재 기기에 이미 저장된 기록은 그대로 남고 첫 로그인 때 Firestore로 올라갑니다. 다른 기기에만 저장된 기록은 그 기기에서도 같은 계정으로 로그인해야 합쳐집니다. 중요한 기록은 전환 전에 JSON으로 백업하세요.
 
-스크립트가 무료 D1 데이터베이스와 Worker를 배포하고, 갱신 토큰 암호화 키를 등록합니다. 끝에 표시되는 `https://...workers.dev` 주소를 알려주시면 제가 GitHub Pages에 연결하겠습니다. 그 전에 Google 인증 플랫폼의 기존 OAuth 웹 클라이언트에서 **승인된 리디렉션 URI**에 `<Worker 주소>/api/auth/callback`을 추가하세요. 이 URI는 경로와 끝부분까지 정확히 일치해야 합니다.
-
-Cloudflare 무료 플랜은 사용량 한도가 있으며, 한도를 넘으면 요청이 실패할 수 있습니다. 개인용 노트의 일반적인 사용량을 염두에 둔 구성입니다. Google OAuth 동의 화면이 **테스트 중**이면 Drive 권한의 갱신 토큰이 7일 후 만료될 수 있으므로 장기 로그인에는 앱을 **프로덕션**으로 게시해야 합니다. 브라우저 데이터를 지우거나 Google에서 앱 권한을 취소하면 다시 로그인해야 합니다.
-
-갱신 토큰은 서버에서 암호화해 D1에 저장하고, 브라우저에는 취소 가능한 세션 키를 저장합니다. 로그아웃하면 현재 기기의 서버 세션과 브라우저 키를 삭제합니다. 노트 내용은 Google Drive 앱 전용 파일 `yellow-note-sync.json`에 그대로 저장됩니다.
-
-### 다른 방법: Google Cloud Run (결제 계정 필요)
-
-Google Cloud Console 오른쪽 위의 **Cloud Shell 활성화**를 누르고 아래 명령을 실행하면 1~3단계를 자동으로 진행할 수 있습니다. OAuth 보안 비밀번호는 Cloud Shell에서만 입력하며 저장소나 채팅에 공유하지 마세요. Cloud Run·Firestore·Secret Manager 사용에는 Google Cloud 요금이 발생할 수 있습니다.
-
-```bash
-git clone https://github.com/hgh-dev/yellownote.git
-cd yellownote
-bash scripts/deploy-cloud-run.sh
-```
-
-마지막에 표시되는 Cloud Run 주소와 리디렉션 URI를 사용해 4~5단계를 완료하세요.
-
-1. Google Cloud 프로젝트 `yellownote`에서 **Drive API, Cloud Run API, Cloud Build API, Artifact Registry API, Secret Manager API, Firestore API**를 사용 설정합니다. Firestore 데이터베이스 `(default)`를 Native 모드로 생성합니다.
-2. 기존 OAuth 웹 클라이언트의 **클라이언트 보안 비밀번호**를 확인합니다. 채팅이나 GitHub 저장소에 붙여 넣지 말고 Secret Manager 비밀 `yellownote-oauth-client-secret`에 저장합니다. 별도로 `openssl rand -base64 32`로 생성한 키를 `yellownote-session-key` 비밀에 저장합니다.
-3. Cloud Run 서비스 계정에 **Cloud Datastore User** 역할을 주고, 두 비밀에 **Secret Manager Secret Accessor** 권한을 줍니다. Cloud Run 서비스를 `Dockerfile`의 소스로 배포합니다. 환경 변수는 `GOOGLE_CLOUD_PROJECT=yellownote`, `GOOGLE_CLIENT_ID=829935199700-3f04te123lbub99p7i2lb1q1dthbm345.apps.googleusercontent.com`, `FRONTEND_URL=https://hgh-dev.github.io/yellownote/`, `PUBLIC_BASE_URL=<Cloud Run HTTPS 주소>`입니다. 비밀 환경 변수는 `GOOGLE_CLIENT_SECRET=yellownote-oauth-client-secret:latest`, `SESSION_ENCRYPTION_KEY=yellownote-session-key:latest`로 연결합니다. 최초 배포 시 Cloud Run 주소를 아직 모르면 `PUBLIC_BASE_URL=https://example.invalid`로 배포한 다음 표시된 실제 HTTPS 주소로 바로 수정합니다. API는 브라우저가 접근해야 하므로 Cloud Run 서비스에 공개 호출을 허용합니다. 서버가 세션 키를 검사합니다.
-4. Google 인증 플랫폼의 기존 OAuth 웹 클라이언트에서 **승인된 리디렉션 URI**에 `<Cloud Run HTTPS 주소>/api/auth/callback`을 추가합니다. 정확히 일치해야 합니다. OAuth 동의 화면이 **테스트 중**이면 Drive 권한의 갱신 토큰이 7일 후 만료될 수 있으므로 장기 로그인에는 앱을 **프로덕션**으로 게시해야 합니다.
-5. GitHub 저장소 **Settings → Secrets and variables → Actions → Variables**에 `SERVER_SYNC=true`와 `SYNC_API_URL=<Cloud Run HTTPS 주소>`를 추가하고 Pages 워크플로를 다시 실행합니다. 배포 후 기존 주소에서 Google 계정으로 다시 한 번 연결하면 이후 재실행 시 세션을 복구합니다.
-
-갱신 토큰은 서버에서 암호화해 Firestore에 저장합니다. 브라우저는 취소 가능한 세션 키만 보관합니다. 로그아웃하면 해당 기기의 서버 세션과 브라우저 키를 삭제합니다. 브라우저 데이터를 지우거나 Google에서 앱 권한을 취소하거나 계정 정책에 따라 갱신 토큰이 만료되면 다시 로그인해야 합니다. 다른 기기의 세션은 각 기기에서 별도로 로그아웃합니다.
-
-서버 배포 전에 현재 사이트를 계속 사용해도 기존 동기화 데이터는 유지됩니다. 새 서버는 같은 Google Drive 앱 전용 파일 `yellow-note-sync.json`을 읽습니다. 서버 배포 후에도 현재 주소를 유지하므로 JSON으로 기기 데이터를 옮길 필요가 없습니다.
-
-### 기존 브라우저 방식
-
-1. Google Cloud Console에서 Google Drive API를 사용 설정하고 OAuth 동의 화면을 구성합니다. 테스트 모드라면 사용할 계정을 테스트 사용자로 등록합니다.
-2. OAuth 웹 클라이언트의 **승인된 JavaScript 원본**에 배포 주소의 원본(예: `https://hgh-dev.github.io`)과 로컬 개발 주소 `http://127.0.0.1:5173`을 등록합니다. 원본에는 `/yellownote/` 같은 경로를 넣지 않습니다.
-3. 이 저장소에는 웹 클라이언트 ID가 이미 설정되어 있습니다. 다른 Google Cloud 프로젝트로 바꿀 때만 로컬 `.env.local` 또는 GitHub Actions 변수 `GOOGLE_CLIENT_ID`에 새 ID를 지정합니다. 클라이언트 ID는 웹 앱에 공개되는 식별자이며 비밀 키가 아닙니다.
-4. 앱의 **설정 → Google 계정으로 연결**에서 Google Drive 앱 전용 저장 공간 권한을 승인합니다. 연결 후에는 온라인에서 변경사항을 자동으로 동기화하고, **지금 동기화**로 즉시 실행할 수 있습니다. 서버 배포 전에는 로그인 토큰이 메모리에만 남아 앱을 다시 열면 다시 연결해야 합니다.
-
-동기화 데이터는 Google Drive의 앱 전용 저장 공간에 저장되며 일반 Drive 파일 목록에는 보이지 않습니다. 할 일과 페이지는 수정 시각을 기준으로 합치고 삭제 기록을 유지합니다. 동시에 여러 기기에서 같은 항목을 편집하는 경우 마지막으로 저장된 항목이 적용됩니다. 중요한 기록은 JSON 파일로도 백업하세요. 다른 기기에서도 새 버전으로 업데이트한 뒤 동기화하세요.
+Firestore 무료 한도에는 저장량과 읽기·쓰기 횟수 제한이 있습니다. 개인용 사용에서는 보통 충분하지만, 한도에 도달하면 동기화 요청이 실패할 수 있습니다. 앱은 이때 로컬 기록을 유지합니다.
 
 ## 1. 내 컴퓨터에서 실행하기
 
@@ -105,13 +69,13 @@ npm run preview
 - 제목·메모는 약 180ms 동안 입력을 모아 저장하고, 포커스 해제 시 즉시 저장합니다. 체크·핀 등의 변경은 바로 저장합니다.
 - 저장 전 변경사항은 localStorage에 임시 복구 기록으로 남기고, IndexedDB 저장이 끝나면 제거합니다. 다음 시작 시 미완료 저장을 복구합니다. localStorage는 주 저장소가 아닌 짧은 복구용 기록입니다.
 - 저장 중 종료 시 경고를 요청하며, 저장 오류는 화면에 표시합니다. ‘다시 저장’으로 재시도하거나 설정에서 현재 화면의 내용을 백업할 수 있습니다.
-- 스키마는 버전 3입니다. 기존 할 일은 업데이트할 때 미분류로 이전합니다. 향후 변경은 `src/data/db.ts`에 다음 버전과 `upgrade()` 마이그레이션을 추가하세요. 기존 버전을 덮어쓰지 마세요.
+- 스키마는 버전 4입니다. 기존 할 일은 업데이트할 때 미분류로 이전하며 Firebase 계정 연결 정보는 별도 메타데이터로 보관합니다. 향후 변경은 `src/data/db.ts`에 다음 버전과 `upgrade()` 마이그레이션을 추가하세요. 기존 버전을 덮어쓰지 마세요.
 
 **내보내기:** 설정 → 내보내기 → `yellow-note-backup-YYYY-MM-DD.json` 다운로드. 모든 할 일과 페이지, 설정, UUID·메모·줄바꿈·핀·완료·정렬 정보가 포함됩니다. 백업 형식은 버전 2이며 이전 버전 1 파일도 가져올 수 있습니다.
 
 **가져오기:** 설정 → 가져오기 → JSON 선택 → 검증 결과 확인 → ‘덮어쓰기 및 복원’. 현재 기록 전체가 백업으로 교체됩니다. 먼저 현재 내용을 내보내세요. 지원 버전, 필드 유형, 실제 달력 날짜, UUID 중복, 완료 시각 등을 검증하며 잘못된 파일은 거절합니다. 교체는 한 트랜잭션(전체 성공 또는 전체 취소)으로 처리합니다. 50MB 이하의 백업을 지원합니다.
 
-브라우저 데이터 삭제, 저장 공간 정리, 기기 분실에 대비해 JSON을 주기적으로 보관하세요. 휴대폰과 PC는 각각 다른 로컬 저장소를 사용하며, Google 계정을 연결하면 Drive를 통해 기록을 합칩니다. 같은 브라우저·같은 웹 주소에서도 여러 탭을 동시에 편집하는 작업은 지원하지 않습니다. 한 탭에서 사용하세요.
+브라우저 데이터 삭제, 저장 공간 정리, 기기 분실에 대비해 JSON을 주기적으로 보관하세요. 휴대폰과 PC는 각각 다른 로컬 저장소를 사용하며, 같은 Firebase 계정으로 로그인하면 기록을 합칩니다. 같은 브라우저·같은 웹 주소에서도 여러 탭을 동시에 편집하는 작업은 지원하지 않습니다. 한 탭에서 사용하세요.
 
 ## 4. GitHub Pages 배포 — 처음 하는 경우
 
@@ -177,7 +141,8 @@ src/
   hooks/useToday.ts       현지 자정·앱 복귀 시 날짜 갱신
   lib/tasks.ts            날짜 계산, 정렬, 그룹 내 순서 변경
   lib/backup.ts           JSON 형식과 데이터 무결성 검증
-  lib/cloud.ts            Google Drive 앱 전용 공간 동기화
+  lib/cloud.ts            동기화 데이터 검증·병합
+  lib/firebaseSync.ts     Firebase 로그인과 Firestore 자동 동기화
   types.ts                할 일·설정·백업 데이터 형식
   styles.css              줄노트 배경, 반응형 화면, 빨간 취소선
 public/                   SVG 원본과 180/192/512px PNG 앱 아이콘

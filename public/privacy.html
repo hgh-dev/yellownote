@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>개인정보처리방침 | Yellow Note</title>
-  <meta name="description" content="Yellow Note의 브라우저 저장 및 Google Drive 동기화 데이터 처리 안내" />
+  <meta name="description" content="Yellow Note의 브라우저 저장 및 Firebase 동기화 데이터 처리 안내" />
   <link rel="stylesheet" href="legal.css" />
 </head>
 <body>
@@ -12,30 +12,30 @@
     <header>
       <a class="brand" href="./">Yellow Note</a>
       <h1>개인정보처리방침</h1>
-      <p class="date">시행일: 2026년 10월 25일</p>
+      <p class="date">시행일: 2026년 10월 26일</p>
     </header>
     <main>
-      <p>Yellow Note는 할 일을 기록하는 웹 앱입니다. 이 문서는 앱이 기록과 Google Drive 데이터를 어떻게 다루는지 설명합니다. 문의: <a href="mailto:hussell.app@gmail.com">hussell.app@gmail.com</a></p>
+      <p>Yellow Note는 할 일을 기록하는 웹 앱입니다. 이 문서는 앱이 기록과 Firebase 데이터를 어떻게 다루는지 설명합니다. 문의: <a href="mailto:hussell.app@gmail.com">hussell.app@gmail.com</a></p>
 
       <h2>1. 처리하는 정보와 목적</h2>
       <p>앱은 사용자가 입력한 할 일 제목, 메모, 기한, 우선순위, 완료 여부, 페이지 이름·소속과 정렬·표시 설정을 저장합니다. 기록을 구분하고 동기화하기 위한 고유 ID, 생성·수정·삭제 시각도 저장합니다. 이 정보는 노트 표시, 저장, 백업과 기기 간 동기화에만 사용합니다.</p>
-      <p>Google 계정 연결은 선택 사항입니다. 앱은 Google Drive의 앱 전용 저장 공간에 접근하기 위한 <code>drive.appdata</code> 권한을 요청합니다. Google 계정의 이메일 주소나 프로필을 별도로 조회하거나 저장하지 않습니다.</p>
+      <p>Google 계정 연결은 선택 사항입니다. Firebase Authentication은 로그인과 사용자 식별을 위해 Google 계정의 이메일 주소, 이름 및 고유 ID를 처리합니다. 앱은 Google Drive 접근 권한을 요청하지 않습니다.</p>
 
       <h2>2. 저장 장소와 외부 서비스</h2>
       <ul>
         <li>기본 기록과 설정은 사용 중인 브라우저의 IndexedDB에 저장됩니다. 저장이 끝나지 않은 변경사항은 복구를 위해 브라우저 localStorage에 임시 저장됩니다.</li>
-        <li>Google 계정을 연결하면 기록, 설정 및 삭제 기록이 사용자의 Google Drive 앱 전용 저장 공간에 동기화됩니다. 일반 Drive 파일 목록에는 표시되지 않습니다.</li>
+        <li>Google 계정을 연결하면 기록, 설정 및 삭제 기록이 사용자별 Cloud Firestore 경로에 동기화됩니다. 계정별 접근은 Firestore 보안 규칙으로 제한합니다.</li>
         <li>JSON 내보내기를 사용하면 백업 파일이 사용자의 기기에 다운로드됩니다. 파일 보관 위치와 공유 여부는 사용자가 관리합니다.</li>
-        <li>노트 내용은 자체 서버에 보관하지 않습니다. 로그인 상태 유지를 설정한 경우에는 Google 갱신 토큰을 암호화해 인증 서버의 데이터베이스에 보관하고, 브라우저에는 세션 식별 키를 저장합니다. 웹페이지 제공에는 GitHub Pages, 인증 서버에는 Cloudflare Workers 또는 Google Cloud Run, 동기화 저장에는 Google Drive가 사용됩니다. 광고·분석 SDK는 사용하지 않습니다.</li>
+        <li>웹페이지 제공에는 GitHub Pages, 로그인과 동기화에는 Firebase Authentication 및 Cloud Firestore가 사용됩니다. 별도 인증 서버를 운영하지 않으며 광고·분석 SDK를 사용하지 않습니다.</li>
       </ul>
-      <p>Google API를 통해 접근한 데이터는 요청한 동기화 기능을 제공하는 데만 사용하며 광고, 판매 또는 그 밖의 제3자 제공에 사용하지 않습니다.</p>
+      <p>동기화 데이터는 노트 기능을 제공하는 데만 사용하며 광고, 판매 또는 그 밖의 제3자 제공에 사용하지 않습니다.</p>
 
       <h2>3. 보관 기간과 삭제</h2>
-      <p>브라우저의 기록은 사용자가 할 일을 삭제하거나 해당 사이트의 브라우저 데이터를 지울 때까지 남습니다. 삭제된 할 일이 다른 기기에서 다시 나타나지 않도록 삭제 ID와 시각은 동기화 기록에 남을 수 있습니다. 내려받은 JSON 백업은 사용자가 별도로 삭제해야 합니다.</p>
-      <p>앱에서 <strong>로그아웃</strong>을 누르면 현재 기기의 세션과 서버에 저장된 해당 Google 갱신 토큰을 삭제합니다. 브라우저와 Drive의 기록은 지워지지 않습니다. 다른 기기에서 로그인한 세션은 각각 로그아웃해야 합니다. Drive의 숨겨진 앱 데이터를 지우려면 먼저 모든 기기에서 Yellow Note를 로그아웃한 뒤, Google Drive의 <strong>설정 → 앱 관리</strong>에서 해당 앱의 숨겨진 데이터를 삭제하세요. 계속 연결된 기기가 있으면 다음 동기화 때 데이터가 다시 저장될 수 있습니다. 브라우저 기록은 브라우저의 사이트 데이터 관리에서 삭제할 수 있습니다.</p>
+      <p>브라우저와 Firestore의 기록은 사용자가 삭제할 때까지 남습니다. 삭제된 할 일이 다른 기기에서 다시 나타나지 않도록 삭제 ID와 시각은 동기화 기록에 남을 수 있습니다. 내려받은 JSON 백업은 사용자가 별도로 삭제해야 합니다.</p>
+      <p>앱에서 <strong>로그아웃</strong>을 누르면 현재 기기의 Firebase 로그인 상태를 지우지만, 브라우저와 Firestore에 저장된 기록은 유지됩니다. 다른 기기에서 로그인한 상태는 각 기기에서 별도로 로그아웃해야 합니다. 기록 삭제를 원하면 <a href="mailto:hussell.app@gmail.com">hussell.app@gmail.com</a>으로 문의할 수 있습니다. 이전 버전에서 Google Drive에 동기화한 파일은 이 버전으로 옮기거나 자동 삭제하지 않습니다.</p>
 
       <h2>4. 보안과 변경</h2>
-      <p>로그인 상태 유지 기능을 설정한 경우 Google 갱신 토큰은 서버에서 암호화해 보관하며 브라우저에 전달하지 않습니다. 브라우저의 세션 키는 로그아웃하거나 사이트 데이터를 지울 때까지 남을 수 있습니다. 웹 연결에는 HTTPS를 사용합니다. 이 방침이 바뀌면 이 페이지의 시행일과 내용을 갱신합니다.</p>
+      <p>Firebase 로그인 상태는 브라우저에 보관되며 로그아웃하거나 사이트 데이터를 지울 때까지 유지될 수 있습니다. 웹 연결에는 HTTPS를 사용합니다. 이 방침이 바뀌면 이 페이지의 시행일과 내용을 갱신합니다.</p>
 
       <h2>5. 문의</h2>
       <p>개인정보 처리 또는 삭제 방법에 관한 문의는 <a href="mailto:hussell.app@gmail.com">hussell.app@gmail.com</a>으로 보내주세요.</p>
