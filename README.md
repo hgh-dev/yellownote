@@ -4,9 +4,25 @@
 
 ## Google Drive 동기화 설정
 
-현재 GitHub Pages 배포는 서버 설정이 끝날 때까지 기존 로그인 방식을 사용합니다. 로그인 유지 기능을 켜려면 아래의 Cloud Run 서버를 배포하고 GitHub Actions 변수 두 개를 설정해야 합니다. 공개 앱 주소 `https://hgh-dev.github.io/yellownote/`는 유지됩니다. 같은 주소이므로 기기의 IndexedDB 기록도 그대로 사용합니다.
+현재 GitHub Pages 배포는 인증 서버 설정이 끝날 때까지 기존 로그인 방식을 사용합니다. 로그인 유지 기능을 켜도 공개 앱 주소 `https://hgh-dev.github.io/yellownote/`와 기기의 IndexedDB 기록은 그대로입니다.
 
-### 로그인 유지 서버 배포
+### 결제 등록 없이 로그인 유지: Cloudflare Workers
+
+[Cloudflare 무료 계정](https://dash.cloudflare.com/sign-up)을 만든 뒤 **본인 컴퓨터의 터미널**에서 실행하세요. Node.js가 필요합니다. Windows에서는 Git Bash를 사용할 수 있습니다. Cloudflare 로그인 창이 열리면 로그인하고, 기존 Google OAuth 웹 클라이언트의 **클라이언트 보안 비밀번호**를 터미널에만 입력하세요. 채팅이나 GitHub에 공유하지 마세요.
+
+```bash
+git clone https://github.com/hgh-dev/yellownote.git
+cd yellownote
+bash scripts/deploy-cloudflare.sh
+```
+
+스크립트가 무료 D1 데이터베이스와 Worker를 배포하고, 갱신 토큰 암호화 키를 등록합니다. 끝에 표시되는 `https://...workers.dev` 주소를 알려주시면 제가 GitHub Pages에 연결하겠습니다. 그 전에 Google 인증 플랫폼의 기존 OAuth 웹 클라이언트에서 **승인된 리디렉션 URI**에 `<Worker 주소>/api/auth/callback`을 추가하세요. 이 URI는 경로와 끝부분까지 정확히 일치해야 합니다.
+
+Cloudflare 무료 플랜은 사용량 한도가 있으며, 한도를 넘으면 요청이 실패할 수 있습니다. 개인용 노트의 일반적인 사용량을 염두에 둔 구성입니다. Google OAuth 동의 화면이 **테스트 중**이면 Drive 권한의 갱신 토큰이 7일 후 만료될 수 있으므로 장기 로그인에는 앱을 **프로덕션**으로 게시해야 합니다. 브라우저 데이터를 지우거나 Google에서 앱 권한을 취소하면 다시 로그인해야 합니다.
+
+갱신 토큰은 서버에서 암호화해 D1에 저장하고, 브라우저에는 취소 가능한 세션 키를 저장합니다. 로그아웃하면 현재 기기의 서버 세션과 브라우저 키를 삭제합니다. 노트 내용은 Google Drive 앱 전용 파일 `yellow-note-sync.json`에 그대로 저장됩니다.
+
+### 다른 방법: Google Cloud Run (결제 계정 필요)
 
 Google Cloud Console 오른쪽 위의 **Cloud Shell 활성화**를 누르고 아래 명령을 실행하면 1~3단계를 자동으로 진행할 수 있습니다. OAuth 보안 비밀번호는 Cloud Shell에서만 입력하며 저장소나 채팅에 공유하지 마세요. Cloud Run·Firestore·Secret Manager 사용에는 Google Cloud 요금이 발생할 수 있습니다.
 

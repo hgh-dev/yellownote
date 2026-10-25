@@ -7,3 +7,7 @@ playwright-report/
 dist-pages/
 .env.local
 .env.*.local
+wrangler.jsonc
+.wrangler/
+.npm-cache/
+.config/

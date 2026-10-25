@@ -9,6 +9,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
     "test:server": "node --test server/server.test.mjs",
+    "test:worker": "node --test cloudflare/worker.test.mjs",
     "test:e2e": "playwright test",
     "icons": "node scripts/generate-icons.mjs"
   },
