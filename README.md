@@ -8,6 +8,16 @@
 
 ### 로그인 유지 서버 배포
 
+Google Cloud Console 오른쪽 위의 **Cloud Shell 활성화**를 누르고 아래 명령을 실행하면 1~3단계를 자동으로 진행할 수 있습니다. OAuth 보안 비밀번호는 Cloud Shell에서만 입력하며 저장소나 채팅에 공유하지 마세요. Cloud Run·Firestore·Secret Manager 사용에는 Google Cloud 요금이 발생할 수 있습니다.
+
+```bash
+git clone https://github.com/hgh-dev/yellownote.git
+cd yellownote
+bash scripts/deploy-cloud-run.sh
+```
+
+마지막에 표시되는 Cloud Run 주소와 리디렉션 URI를 사용해 4~5단계를 완료하세요.
+
 1. Google Cloud 프로젝트 `yellownote`에서 **Drive API, Cloud Run API, Cloud Build API, Artifact Registry API, Secret Manager API, Firestore API**를 사용 설정합니다. Firestore 데이터베이스 `(default)`를 Native 모드로 생성합니다.
 2. 기존 OAuth 웹 클라이언트의 **클라이언트 보안 비밀번호**를 확인합니다. 채팅이나 GitHub 저장소에 붙여 넣지 말고 Secret Manager 비밀 `yellownote-oauth-client-secret`에 저장합니다. 별도로 `openssl rand -base64 32`로 생성한 키를 `yellownote-session-key` 비밀에 저장합니다.
 3. Cloud Run 서비스 계정에 **Cloud Datastore User** 역할을 주고, 두 비밀에 **Secret Manager Secret Accessor** 권한을 줍니다. Cloud Run 서비스를 `Dockerfile`의 소스로 배포합니다. 환경 변수는 `GOOGLE_CLOUD_PROJECT=yellownote`, `GOOGLE_CLIENT_ID=829935199700-3f04te123lbub99p7i2lb1q1dthbm345.apps.googleusercontent.com`, `FRONTEND_URL=https://hgh-dev.github.io/yellownote/`, `PUBLIC_BASE_URL=<Cloud Run HTTPS 주소>`입니다. 비밀 환경 변수는 `GOOGLE_CLIENT_SECRET=yellownote-oauth-client-secret:latest`, `SESSION_ENCRYPTION_KEY=yellownote-session-key:latest`로 연결합니다. 최초 배포 시 Cloud Run 주소를 아직 모르면 `PUBLIC_BASE_URL=https://example.invalid`로 배포한 다음 표시된 실제 HTTPS 주소로 바로 수정합니다. API는 브라우저가 접근해야 하므로 Cloud Run 서비스에 공개 호출을 허용합니다. 서버가 세션 키를 검사합니다.
