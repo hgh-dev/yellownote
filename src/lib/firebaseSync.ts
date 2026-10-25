@@ -20,6 +20,8 @@ let setup: Promise<void> | null = null;
 let connected = false;
 let activeUid: string | null = null;
 let authError = '';
+let lastSyncedAt: string | null = null;
+let syncPending = false;
 let syncing: Promise<void> | null = null;
 let syncAgain = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -36,6 +38,7 @@ export function firebaseAvailable() { return configured; }
 export function firebaseConnected() { return connected; }
 export function firebaseError() { return authError; }
 export function firebaseAccountEmail() { return configured ? auth().currentUser?.email || '' : ''; }
+export function firebaseSaveStatus() { return { connected, syncing: syncPending, lastSyncedAt, error: authError }; }
 function notify() { if (typeof window !== 'undefined') window.dispatchEvent(new Event('yellow-note-cloud-status')); }
 function fail(error: unknown) {
   authError = error instanceof Error ? error.message : 'Firebase 동기화에 실패했습니다.';
@@ -50,6 +53,7 @@ function stopListening() {
   subscriptions = [];
   clearTimeout(timer);
   syncAgain = false;
+  syncPending = false;
   if (rejectReady) rejectReady(new Error('로그인이 해제되었습니다.'));
   readyPromise = null;
   resolveReady = null;
@@ -61,6 +65,8 @@ function stopListening() {
 }
 function scheduleSync(delay = 700) {
   if (!connected || !readyPromise || !remote.tasks || !remote.pages || !remote.deleted || !remote.settings) return;
+  syncPending = true;
+  notify();
   if (syncing) { syncAgain = true; return; }
   clearTimeout(timer);
   timer = setTimeout(() => { void syncFirebase().catch(fail); }, delay);
@@ -85,6 +91,7 @@ async function activateUser(user: User): Promise<void> {
   if (!owner) await db.meta.put({ key: ownerKey, value: user.uid });
   activeUid = user.uid;
   connected = true;
+  syncPending = true;
   authError = '';
   startAutoSync();
   readyPromise = new Promise<void>((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
@@ -133,6 +140,7 @@ async function setupFirebase() {
   if (setup) return setup;
   setup = (async () => {
     if (!getApps().length) initializeApp(firebaseConfig);
+    lastSyncedAt = (await db.meta.get('last-synced-at'))?.value || null;
     await setPersistence(auth(), browserLocalPersistence);
     onAuthStateChanged(auth(), (user) => {
       if (user) void attachUser(user).catch(fail);
@@ -181,6 +189,8 @@ async function runLimited(jobs: Array<() => Promise<void>>, size = 10) {
 }
 export function syncFirebase(): Promise<void> {
   if (syncing) return syncing;
+  syncPending = true;
+  notify();
   syncing = (async () => {
     if (!navigator.onLine) throw new Error('인터넷 연결 후 다시 동기화해 주세요.');
     const uid = activeUid;
@@ -207,11 +217,17 @@ export function syncFirebase(): Promise<void> {
     }
     if (plan.applyToLocal)
       await applySynced(plan.combined.tasks, plan.combined.settings, plan.combined.deleted, plan.combined.pages);
+    if (!syncAgain) {
+      const syncedAt = new Date().toISOString();
+      await db.meta.put({ key: 'last-synced-at', value: syncedAt });
+      lastSyncedAt = syncedAt;
+    }
     authError = '';
     notify();
   })().finally(() => {
     syncing = null;
     if (syncAgain) { syncAgain = false; scheduleSync(0); }
+    else { syncPending = false; notify(); }
   });
   return syncing;
 }

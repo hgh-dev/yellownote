@@ -1,4 +1,16 @@
 import { test, expect } from "@playwright/test";
+test("자동 저장 시각을 초 단위로 표시하고 재접속 후에도 유지한다", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "새 할 일 추가", exact: true }).click();
+  await page.getByLabel("할 일 제목", { exact: true }).fill("저장 시각 확인");
+  const status = page.locator(".paper-footer .save-state");
+  await expect(status).toHaveText(/자동 저장됨\(\d{2}:\d{2}:\d{2}\)/);
+  const saved = await status.innerText();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.reload();
+  await expect(page.getByLabel("할 일 제목", { exact: true })).toHaveValue("저장 시각 확인");
+  await expect(status).toHaveText(saved);
+});
 test("한 줄 제목과 화면 너비에 따른 행 배치", async ({ page }) => {
   await page.setViewportSize({ width: 1200, height: 900 });
   await page.goto("/");

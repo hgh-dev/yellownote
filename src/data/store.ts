@@ -8,6 +8,7 @@ interface State {
   settings: Settings;
   ready: boolean;
   saving: boolean;
+  lastSavedAt: string | null;
   error: string | null;
 }
 let state: State = {
@@ -16,6 +17,7 @@ let state: State = {
   settings: defaults,
   ready: false,
   saving: false,
+  lastSavedAt: null,
   error: null,
 };
 const listeners = new Set<() => void>();
@@ -76,9 +78,10 @@ export function flush(): Promise<void> {
   if (!pending.size && !pendingPages.size && !pendingSettings) return Promise.resolve();
   const batch = new Map(pending),
     pageBatch = new Map(pendingPages),
-    preferences = pendingSettings;
+    preferences = pendingSettings,
+    savedAt = new Date().toISOString();
   running = db
-    .transaction("rw", db.tasks, db.settings, db.deleted, db.pages, async () => {
+    .transaction("rw", db.tasks, db.settings, db.deleted, db.pages, db.meta, async () => {
       for (const [id, task] of batch) {
         if (task) {
           await db.tasks.put(task);
@@ -90,6 +93,7 @@ export function flush(): Promise<void> {
       }
       for (const page of pageBatch.values()) await db.pages.put(page);
       if (preferences) await db.settings.put(preferences);
+      await db.meta.put({ key: "last-saved-at", value: savedAt });
     })
     .then(() => {
       batch.forEach((task, id) => {
@@ -100,7 +104,7 @@ export function flush(): Promise<void> {
       });
       if (pendingSettings === preferences) pendingSettings = null;
       journal();
-      emit({ saving: !!pending.size || !!pendingPages.size || !!pendingSettings, error: null });
+      emit({ saving: !!pending.size || !!pendingPages.size || !!pendingSettings, lastSavedAt: savedAt, error: null });
     })
     .catch((error: unknown) => {
       emit({
@@ -144,12 +148,20 @@ export function initialize() {
         pendingSettings = recovery.settings;
         await flush();
       }
-      const [tasks, settings, pages] = await Promise.all([
+      const [tasks, settings, pages, deleted, saved] = await Promise.all([
         db.tasks.toArray(),
         db.settings.get("preferences"),
         db.pages.toArray(),
+        db.deleted.toArray(),
+        db.meta.get("last-saved-at"),
       ]);
-      emit({ tasks, pages, settings: settings || defaults, ready: true });
+      const lastSavedAt = saved?.value || [
+        ...tasks.map((task) => task.updatedAt),
+        ...pages.map((page) => page.updatedAt),
+        ...deleted.map((item) => item.deletedAt),
+        settings?.updatedAt,
+      ].filter((value): value is string => !!value).sort().at(-1) || new Date().toISOString();
+      emit({ tasks, pages, settings: settings || defaults, lastSavedAt, ready: true });
     } catch {
       emit({
         error:
@@ -248,12 +260,15 @@ export function deletePage(id: string) {
 export async function restore(backup: Backup) {
   await flush();
   await replaceDatabase(backup);
-  emit({ tasks: backup.tasks, pages: backup.pages, settings: backup.settings, error: null });
+  const savedAt = new Date().toISOString();
+  await db.meta.put({ key: "last-saved-at", value: savedAt });
+  emit({ tasks: backup.tasks, pages: backup.pages, settings: backup.settings, lastSavedAt: savedAt, error: null });
   if (typeof window !== "undefined") window.dispatchEvent(new Event("yellow-note-change"));
 }
 export async function applySynced(tasks: Task[], settings: Settings, deleted: { id: string; deletedAt: string }[], pages: Page[]) {
   await flush();
-  await db.transaction("rw", db.tasks, db.settings, db.deleted, db.pages, async () => {
+  const savedAt = new Date().toISOString();
+  await db.transaction("rw", db.tasks, db.settings, db.deleted, db.pages, db.meta, async () => {
     await db.tasks.clear();
     await db.tasks.bulkPut(tasks);
     await db.settings.put(settings);
@@ -261,8 +276,9 @@ export async function applySynced(tasks: Task[], settings: Settings, deleted: { 
     await db.deleted.bulkPut(deleted);
     await db.pages.clear();
     await db.pages.bulkPut(pages);
+    await db.meta.put({ key: "last-saved-at", value: savedAt });
   });
-  emit({ tasks, pages, settings, error: null });
+  emit({ tasks, pages, settings, lastSavedAt: savedAt, error: null });
 }
 if (typeof window !== "undefined") {
   window.addEventListener("pagehide", () => {

@@ -38,9 +38,16 @@ import { SortDialog, sortLabel } from "./components/SortDialog";
 import { SettingsDialog, type InstallEvent } from "./components/SettingsDialog";
 import { Dialog } from "./components/Dialog";
 import { PageSidebar } from "./components/PageSidebar";
-import { restoreFirebaseSession } from "./lib/firebaseSync";
+import { firebaseSaveStatus, restoreFirebaseSession } from "./lib/firebaseSync";
+function savedClock(iso: string | null) {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return [date.getHours(), date.getMinutes(), date.getSeconds()].map((value) => String(value).padStart(2, "0")).join(":");
+}
 export default function App() {
-  const { tasks, pages, settings, ready, saving, error } = useNote();
+  const { tasks, pages, settings, ready, saving, lastSavedAt, error } = useNote();
+  const [cloudStatus, setCloudStatus] = useState(firebaseSaveStatus);
   const today = useToday(),
     [panel, setPanel] = useState<"sort" | "settings" | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null),
@@ -92,6 +99,11 @@ export default function App() {
       window.removeEventListener("offline", online);
       window.removeEventListener("beforeinstallprompt", install);
     };
+  }, []);
+  useEffect(() => {
+    const updateCloudStatus = () => setCloudStatus(firebaseSaveStatus());
+    window.addEventListener("yellow-note-cloud-status", updateCloudStatus);
+    return () => window.removeEventListener("yellow-note-cloud-status", updateCloudStatus);
   }, []);
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -253,6 +265,14 @@ export default function App() {
       setUpdating(false);
     }
   }
+  const localTime = savedClock(lastSavedAt);
+  const synced = cloudStatus.connected && !cloudStatus.syncing && !cloudStatus.error &&
+    cloudStatus.lastSyncedAt && lastSavedAt && cloudStatus.lastSyncedAt >= lastSavedAt;
+  const statusText = !ready ? "노트를 여는 중…" : error ? "저장 확인 필요" : saving ? "저장 중…" :
+    offline ? `오프라인 · 자동 저장됨(${localTime})` :
+    cloudStatus.error ? `자동 저장됨(${localTime}) · 동기화 확인 필요` :
+    cloudStatus.syncing ? `자동 저장됨(${localTime}) · 동기화 중…` :
+    synced ? `자동 저장 및 동기화됨(${savedClock(cloudStatus.lastSyncedAt)})` : `자동 저장됨(${localTime})`;
   const group = (items: typeof tasks) => (
     <SortableContext
       items={items.map((t) => t.id)}
@@ -379,23 +399,8 @@ export default function App() {
             <a href={`${import.meta.env.BASE_URL}terms.html`}>서비스 약관</a>
           </div>
           <span className="save-state" role="status">
-            {offline ? (
-              <>
-                <CloudOff size={13} />
-                오프라인
-              </>
-            ) : error ? (
-              "저장 확인 필요"
-            ) : saving ? (
-              "저장 중…"
-            ) : ready ? (
-              <>
-                <Check size={13} />
-                자동 저장됨
-              </>
-            ) : (
-              "노트를 여는 중…"
-            )}
+            {offline && ready && !error && !saving ? <CloudOff size={13} /> : ready && !error && !saving ? <Check size={13} /> : null}
+            {statusText}
           </span>
         </footer>
       </main>
