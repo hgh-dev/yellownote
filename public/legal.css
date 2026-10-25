@@ -1,0 +1,16 @@
+:root { font-family: "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; color: #454432; background: #ffed91; line-height: 1.75; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+a { color: #76572e; text-underline-offset: 3px; }
+a:focus-visible { outline: 2px solid #81713b; outline-offset: 3px; }
+.wrap { max-width: 760px; margin: 0 auto; padding: 28px 24px 70px; }
+header { border-bottom: 1px solid #c9b466; padding-bottom: 24px; }
+.brand { font-size: 1.1rem; font-weight: 800; text-decoration: none; }
+h1 { font-size: clamp(1.7rem, 5vw, 2.2rem); line-height: 1.35; margin: 28px 0 8px; }
+h2 { font-size: 1.12rem; margin: 30px 0 8px; }
+p, li { font-size: .96rem; }
+ul { padding-left: 1.4rem; }
+.date { color: #766d4c; margin: 0; }
+main { padding-top: 4px; }
+footer { margin-top: 42px; padding-top: 18px; border-top: 1px solid #c9b466; font-size: .9rem; }
+footer a + a { margin-left: 18px; }

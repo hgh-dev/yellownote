@@ -350,6 +350,10 @@ export default function App() {
         </section>
         <footer className="paper-footer">
           <p>작은 기록이 만드는 가벼운 하루</p>
+          <div className="legal-links">
+            <a href={`${import.meta.env.BASE_URL}privacy.html`}>개인정보처리방침</a>
+            <a href={`${import.meta.env.BASE_URL}terms.html`}>서비스 약관</a>
+          </div>
           <span className="save-state" role="status">
             {offline ? (
               <>

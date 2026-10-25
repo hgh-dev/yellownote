@@ -963,6 +963,8 @@ textarea {
   line-height: 22px;
   letter-spacing: 0;
 }
+.legal-links { display: flex; justify-content: flex-end; gap: 14px; line-height: 22px; letter-spacing: 0; }
+.legal-links a, .settings-footer a { text-decoration: underline; text-underline-offset: 2px; }
 @media (max-width: 520px) {
   .app-header { grid-template-rows: 88px 44px; min-height: 132px; }
   .header-meta {

@@ -198,6 +198,10 @@ export function SettingsDialog({
         YELLOW NOTE · v1.0
         <br />
         오늘의 기록을, 차곡차곡.
+        <br />
+        <a href={`${import.meta.env.BASE_URL}privacy.html`}>개인정보처리방침</a>
+        {" · "}
+        <a href={`${import.meta.env.BASE_URL}terms.html`}>서비스 약관</a>
       </footer>
     </Dialog>
   );
