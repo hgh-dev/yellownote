@@ -164,7 +164,7 @@ select {
   color: #82764e;
   font-size: 12px;
 }
-.header-meta time { white-space: nowrap; text-align: center; }
+.current-page-name { display: block; max-width: min(40vw, 440px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 14px; font-weight: 600; color: #5f5638; }
 .task-counts { white-space: nowrap; }
 .task-counts b { margin-left: 6px; font-weight: 500; }
 .current-sort {
@@ -969,7 +969,6 @@ textarea {
 }
 .legal-links { display: flex; justify-content: flex-end; gap: 14px; line-height: 22px; letter-spacing: 0; }
 .legal-links a, .settings-footer a { text-decoration: underline; text-underline-offset: 2px; }
-.task-page-label { font-size: 10px; line-height: 19px; color: #8b7446; padding-left: 1px; }
 .page-move-label { display: block; padding: 8px 9px 0; font-size: 11px; color: #82764e; }
 .page-move-select { display: block; width: calc(100% - 10px); margin: 4px 5px 7px; padding: 7px; border: 1px solid #cbbb83; border-radius: 4px; background: #fffae7; font-size: 12px; }
 .page-backdrop { position: fixed; inset: 0; z-index: 7; width: 100%; background: #3f381955; }
@@ -1012,13 +1011,13 @@ textarea {
     grid-template-rows: 44px;
     gap: 0 4px;
   }
-  .header-meta time {
+  .current-page-name {
     grid-column: 2;
     grid-row: 1;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 9px;
+    font-size: 12px;
   }
   .task-counts {
     grid-column: 1;

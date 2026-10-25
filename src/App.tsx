@@ -263,17 +263,10 @@ export default function App() {
           onSelect={() => setSelectedId(task.id)}
           onDelete={() => setDeleteId(task.id)}
           pages={pages}
-          showPage={selectedPage === "all"}
         />
       ))}
     </SortableContext>
   );
-  const dateText = new Date(`${today}T12:00:00`).toLocaleDateString("ko-KR", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    weekday: "long",
-  });
   return (
     <div className={`notebook ${sidebarOpen ? "sidebar-open" : ""}`}>
       <header className="app-header">
@@ -315,10 +308,10 @@ export default function App() {
         </nav>
         <div className="header-meta">
           <span className="task-counts">
-            {pageTitle} <b>{scopedTasks.filter((t) => !t.completed).length}</b>
+            나의 할 일 <b>{scopedTasks.filter((t) => !t.completed).length}</b>
             <span className="completed-count">완료 {completed}</span>
           </span>
-          <time dateTime={today}>{dateText}</time>
+          <strong className="current-page-name" title={pageTitle}>{pageTitle}</strong>
           <button className="current-sort" onClick={() => setPanel("sort")} disabled={!ready}>
             {sortLabel(settings)}
             <ArrowDownUp size={13} />

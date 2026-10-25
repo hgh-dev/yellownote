@@ -29,7 +29,6 @@ export function TaskRow({
   onSelect,
   onDelete,
   pages,
-  showPage,
 }: {
   task: Task;
   today: string;
@@ -38,7 +37,6 @@ export function TaskRow({
   onSelect: () => void;
   onDelete: () => void;
   pages: Page[];
-  showPage: boolean;
 }) {
   const [memoOpen, setMemoOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -288,7 +286,6 @@ export function TaskRow({
           </div>}
         </div>
       </div>
-      {showPage && <div className="task-page-label">{pages.find((p) => p.id === task.pageId)?.name || "미분류"}</div>}
       {memoOpen && (
         <div className="memo-area" id={`memo-${task.id}`}>
           <textarea
