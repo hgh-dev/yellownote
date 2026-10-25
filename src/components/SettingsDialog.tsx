@@ -29,6 +29,7 @@ export function SettingsDialog({
   useEffect(() => {
     const update = () => { setConnected(firebaseConnected()); if (firebaseError()) setCloudMessage(firebaseError()); };
     window.addEventListener("yellow-note-cloud-status", update);
+    update();
     return () => window.removeEventListener("yellow-note-cloud-status", update);
   }, []);
   async function cloudAction(connect: boolean) {

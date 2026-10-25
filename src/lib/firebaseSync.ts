@@ -47,6 +47,7 @@ function stopListening() {
   for (const unsubscribe of subscriptions) unsubscribe();
   subscriptions = [];
   clearTimeout(timer);
+  syncAgain = false;
   if (rejectReady) rejectReady(new Error('로그인이 해제되었습니다.'));
   readyPromise = null;
   resolveReady = null;
@@ -91,8 +92,11 @@ async function attachUser(user: User): Promise<void> {
     scheduleSync(0);
   };
   const subscriptionError = (error: Error) => {
-    fail(error instanceof FirebaseError && error.code === 'permission-denied' ? new Error('Firestore 접근이 거부되었습니다. 보안 규칙을 확인해 주세요.') : error);
-    if (rejectReady) { rejectReady(error); rejectReady = null; resolveReady = null; }
+    const shown = error instanceof FirebaseError && error.code === 'permission-denied'
+      ? new Error('Firestore 접근이 거부되었습니다. 보안 규칙을 확인해 주세요.') : error;
+    if (rejectReady) { rejectReady(shown); rejectReady = null; resolveReady = null; }
+    stopListening();
+    fail(shown);
   };
   const listenOptions = { includeMetadataChanges: true };
   for (const name of ['tasks', 'pages', 'deleted'] as const) {
@@ -128,6 +132,7 @@ export async function restoreFirebaseSession() {
 }
 export async function connectFirebase() {
   await setupFirebase();
+  if (auth().currentUser) { await attachUser(auth().currentUser!); return; }
   const result = await signInWithPopup(auth(), provider);
   await attachUser(result.user);
 }
