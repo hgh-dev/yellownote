@@ -164,10 +164,11 @@ select {
   color: #82764e;
   font-size: 12px;
 }
-.current-page-name { display: block; max-width: min(40vw, 440px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 14px; font-weight: 600; color: #5f5638; }
+.current-page-name { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; height: 44px; max-width: min(40vw, 440px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 14px; font-weight: 600; color: #5f5638; }
 .task-counts { white-space: nowrap; }
 .task-counts b { margin-left: 6px; font-weight: 500; }
 .current-sort {
+  grid-column: 3;
   justify-self: end;
   display: flex;
   align-items: center;
@@ -1012,8 +1013,6 @@ textarea {
     gap: 0 4px;
   }
   .current-page-name {
-    grid-column: 2;
-    grid-row: 1;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;

@@ -463,3 +463,20 @@ test("페이지 생성, 할 일 이동, 이름 변경과 삭제", async ({ page 
   await expect(page.getByRole("button", { name: "회사 삭제" })).toHaveCount(0);
   await expect(page.getByLabel("할 일 제목")).toHaveCount(2);
 });
+test("페이지 이름은 화면의 정확한 중앙에 표시", async ({ page }) => {
+  await page.goto("/");
+  const heading = page.locator(".current-page-name");
+  await expect(heading).toHaveText("모든 할 일");
+  for (const width of [320, 393, 768, 1440]) {
+    await page.setViewportSize({ width, height: 850 });
+    const box = await heading.boundingBox();
+    expect(box).not.toBeNull();
+    expect(Math.abs(box!.x + box!.width / 2 - width / 2)).toBeLessThanOrEqual(1);
+  }
+  await page.setViewportSize({ width: 393, height: 850 });
+  await page.getByRole("button", { name: "페이지 목록 열기" }).click();
+  await page.getByRole("button", { name: /미분류/ }).click();
+  await expect(heading).toHaveText("미분류");
+  const box = await heading.boundingBox();
+  expect(Math.abs(box!.x + box!.width / 2 - 393 / 2)).toBeLessThanOrEqual(1);
+});
