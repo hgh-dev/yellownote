@@ -440,7 +440,11 @@ test("페이지 생성, 할 일 이동, 이름 변경과 삭제", async ({ page 
   await expect(page.locator(".current-page-name")).toHaveText("모든 할 일");
   await expect(page.locator(".task-page-label")).toHaveCount(0);
   await page.getByRole("button", { name: "회의 준비 더보기" }).click();
-  await page.getByRole("combobox", { name: "회의 준비 페이지 이동" }).selectOption({ label: "집안일" });
+  await page.getByRole("button", { name: "회의 준비 페이지 이동" }).click();
+  const moveDialog = page.getByRole("dialog", { name: "페이지 이동" });
+  await expect(moveDialog.getByRole("button", { name: "업무" })).toHaveAttribute("aria-pressed", "true");
+  await moveDialog.getByRole("button", { name: "집안일" }).click();
+  await expect(moveDialog).toHaveCount(0);
   await page.reload();
   await expect(page.locator(".current-page-name")).toHaveText("모든 할 일");
   await page.getByRole("button", { name: "페이지 목록 열기" }).click();

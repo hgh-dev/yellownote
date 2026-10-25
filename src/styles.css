@@ -970,8 +970,10 @@ textarea {
 }
 .legal-links { display: flex; justify-content: flex-end; gap: 14px; line-height: 22px; letter-spacing: 0; }
 .legal-links a, .settings-footer a { text-decoration: underline; text-underline-offset: 2px; }
-.page-move-label { display: block; padding: 8px 9px 0; font-size: 11px; color: #82764e; }
-.page-move-select { display: block; width: calc(100% - 10px); margin: 4px 5px 7px; padding: 7px; border: 1px solid #cbbb83; border-radius: 4px; background: #fffae7; font-size: 12px; }
+.move-page-options { display: grid; gap: 5px; max-height: min(55vh, 360px); overflow-y: auto; margin-top: 14px; }
+.move-page-option { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; width: 100%; padding: 0 12px; text-align: left; border-radius: 5px; background: #fff5ca; }
+.move-page-option span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.move-page-option:hover, .move-page-option[aria-pressed="true"] { background: #e8d485; }
 .page-backdrop { position: fixed; inset: 0; z-index: 7; width: 100%; background: #3f381955; }
 .page-sidebar { position: fixed; inset: 0 auto 0 0; z-index: 8; width: min(280px, 85vw); display: flex; flex-direction: column; padding: 18px 15px 20px; background: #fff0ac; border-right: 1px solid #c9b466; box-shadow: 7px 0 25px #4f431d24; }
 .page-sidebar-head { display: flex; justify-content: space-between; align-items: center; padding: 0 3px 14px; font-size: 17px; }

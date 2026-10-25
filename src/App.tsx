@@ -43,6 +43,7 @@ export default function App() {
   const today = useToday(),
     [panel, setPanel] = useState<"sort" | "settings" | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null),
+    [moveTaskId, setMoveTaskId] = useState<string | null>(null),
     [focusId, setFocusId] = useState<string | null>(null),
     [selectedId, setSelectedId] = useState<string | null>(null);
   const [offline, setOffline] = useState(!navigator.onLine),
@@ -108,6 +109,7 @@ export default function App() {
   const visible = sortedTasks(scopedTasks, settings);
   const completed = scopedTasks.filter((t) => t.completed).length;
   const pageTitle = selectedPage === "all" ? "모든 할 일" : selectedPage === null ? "미분류" : pages.find((p) => p.id === selectedPage)?.name || "미분류";
+  const movingTask = tasks.find((task) => task.id === moveTaskId);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
@@ -262,7 +264,7 @@ export default function App() {
           selected={selectedId === task.id}
           onSelect={() => setSelectedId(task.id)}
           onDelete={() => setDeleteId(task.id)}
-          pages={pages}
+          onMove={() => setMoveTaskId(task.id)}
         />
       ))}
     </SortableContext>
@@ -460,6 +462,22 @@ export default function App() {
             >
               삭제
             </button>
+          </div>
+        </Dialog>
+      )}
+      {movingTask && (
+        <Dialog title="페이지 이동" onClose={() => setMoveTaskId(null)}>
+          <p className="help">{movingTask.title.trim() || "제목 없는 할 일"}을(를) 어느 페이지로 옮길까요?</p>
+          <div className="move-page-options">
+            {[{ id: null, name: "미분류" }, ...pages.filter((page) => !page.deletedAt).sort((a, b) => a.sortOrder - b.sortOrder)].map((page) => (
+              <button key={page.id || "unfiled"} className="move-page-option" aria-pressed={movingTask.pageId === page.id} onClick={() => {
+                if (movingTask.pageId !== page.id) updateTask(movingTask.id, { pageId: page.id }, true);
+                setMoveTaskId(null);
+              }}>
+                <span>{page.name}</span>
+                {movingTask.pageId === page.id && <Check size={17} aria-hidden="true" />}
+              </button>
+            ))}
           </div>
         </Dialog>
       )}
