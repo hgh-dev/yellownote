@@ -38,6 +38,7 @@ import { SortDialog, sortLabel } from "./components/SortDialog";
 import { SettingsDialog, type InstallEvent } from "./components/SettingsDialog";
 import { Dialog } from "./components/Dialog";
 import { PageSidebar } from "./components/PageSidebar";
+import { restoreGoogleSession } from "./lib/cloud";
 export default function App() {
   const { tasks, pages, settings, ready, saving, error } = useNote();
   const today = useToday(),
@@ -75,8 +76,11 @@ export default function App() {
       ),
   });
   useEffect(() => {
-    void initialize();
-    const online = () => setOffline(!navigator.onLine);
+    void initialize().then(restoreGoogleSession);
+    const online = () => {
+      setOffline(!navigator.onLine);
+      if (navigator.onLine) void restoreGoogleSession();
+    };
     const install = (e: Event) => {
       e.preventDefault();
       setInstallEvent(e as InstallEvent);

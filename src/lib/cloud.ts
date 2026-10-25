@@ -20,13 +20,39 @@ const clientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined) |
   "829935199700-3f04te123lbub99p7i2lb1q1dthbm345.apps.googleusercontent.com";
 const filename = "yellow-note-sync.json";
 const scope = "https://www.googleapis.com/auth/drive.appdata";
+const serverSync = import.meta.env.VITE_SERVER_SYNC === "true";
+const api = (import.meta.env.VITE_SYNC_API_URL as string | undefined)?.replace(/\/$/, "") || "";
+const sessionKey = "yellow-note-session";
 let token: string | null = null;
+let serverConnected = false;
 let syncing: Promise<void> | null = null;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let autoStarted = false;
 
-export function cloudAvailable() { return !!clientId; }
-export function cloudConnected() { return !!token; }
+export function cloudAvailable() { return serverSync ? !!api : !!clientId; }
+export function cloudConnected() { return serverSync ? serverConnected : !!token; }
+
+export async function restoreGoogleSession() {
+  if (!serverSync) return;
+  try {
+    const code = new URLSearchParams(window.location.hash.slice(1)).get("login");
+    if (code) {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+      const exchanged = await fetch(`${api}/api/auth/exchange`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+      if (!exchanged.ok) throw new Error("Google 연결을 완료하지 못했습니다.");
+      localStorage.setItem(sessionKey, (await exchanged.json() as { session: string }).session);
+    }
+    const saved = localStorage.getItem(sessionKey);
+    if (!saved) return;
+    const response = await fetch(`${api}/api/session`, { headers: { Authorization: `Bearer ${saved}` }, cache: "no-store" });
+    serverConnected = response.ok && (await response.json() as { connected: boolean }).connected;
+    if (serverConnected) {
+      startAutoSync();
+      void syncGoogle().catch(() => {});
+    }
+  } catch { serverConnected = false; }
+  window.dispatchEvent(new Event("yellow-note-cloud-status"));
+}
 
 function loadGoogle(): Promise<void> {
   if (window.google?.accounts.oauth2) return Promise.resolve();
@@ -41,6 +67,7 @@ function loadGoogle(): Promise<void> {
 }
 
 export async function connectGoogle() {
+  if (serverSync) { window.location.assign(`${api}/api/auth/start`); return; }
   if (!clientId) throw new Error("Google 로그인 설정이 아직 없습니다. VITE_GOOGLE_CLIENT_ID를 설정해 주세요.");
   await loadGoogle();
   return new Promise<void>((resolve, reject) => {
@@ -55,7 +82,17 @@ export async function connectGoogle() {
   });
 }
 
-export function disconnectGoogle() {
+export async function disconnectGoogle() {
+  if (serverSync) {
+    const saved = localStorage.getItem(sessionKey);
+    const response = await fetch(`${api}/api/logout`, { method: "POST", headers: { Authorization: `Bearer ${saved}` } });
+    if (!response.ok) throw new Error("로그아웃하지 못했습니다. 다시 시도해 주세요.");
+    localStorage.removeItem(sessionKey);
+    serverConnected = false;
+    clearTimeout(timer);
+    window.dispatchEvent(new Event("yellow-note-cloud-status"));
+    return;
+  }
   if (token) window.google?.accounts.oauth2.revoke(token);
   token = null;
   clearTimeout(timer);
@@ -88,6 +125,22 @@ async function findFile(): Promise<string | null> {
   const params = new URLSearchParams({ spaces: "appDataFolder", fields: "nextPageToken,files(id,name)", q: `name = '${filename}' and trashed = false`, pageSize: "100" });
   const list = await (await request(`files?${params}`)).json() as { files?: { id: string; name: string }[] };
   return list.files?.find((file) => file.name === filename)?.id || null;
+}
+
+async function serverRequest(method: "GET" | "PUT", data?: CloudData): Promise<CloudData | null> {
+  const response = await fetch(`${api}/api/cloud`, {
+    method, cache: "no-store",
+    headers: { Authorization: `Bearer ${localStorage.getItem(sessionKey) || ""}`, ...(data ? { "Content-Type": "application/json" } : {}) },
+    body: data ? JSON.stringify(data) : undefined,
+  });
+  if (response.status === 401) {
+    serverConnected = false;
+    localStorage.removeItem(sessionKey);
+    window.dispatchEvent(new Event("yellow-note-cloud-status"));
+    throw new Error("Google 연결이 만료되었습니다. 다시 로그인해 주세요.");
+  }
+  if (!response.ok) throw new Error(`Google Drive 동기화 실패 (${response.status}).`);
+  return method === "GET" ? ((await response.json()) as CloudData | null) : null;
 }
 
 export function mergeCloudData(local: CloudData, remote: CloudData): CloudData {
@@ -137,10 +190,12 @@ export function syncGoogle(): Promise<void> {
     await flush();
     const { tasks, settings, pages } = getNote();
     const local: CloudData = { app: "yellow-note-sync", version: 2, tasks, settings, pages, deleted: await db.deleted.toArray() };
-    const fileId = await findFile();
-    const remote = fileId ? parseCloudData(await (await request(`files/${encodeURIComponent(fileId)}?alt=media`)).json()) : null;
+    const fileId = serverSync ? null : await findFile();
+    const serverData = serverSync ? await serverRequest("GET") : null;
+    const remote = serverSync ? serverData ? parseCloudData(serverData) : null : fileId ? parseCloudData(await (await request(`files/${encodeURIComponent(fileId)}?alt=media`)).json()) : null;
     const combined = remote ? mergeCloudData(local, remote) : local;
-    await upload(fileId, combined);
+    if (serverSync) await serverRequest("PUT", combined);
+    else await upload(fileId, combined);
     if (getNote().tasks !== tasks || getNote().settings !== settings || getNote().pages !== pages) {
       window.dispatchEvent(new Event("yellow-note-change"));
       return;
@@ -155,12 +210,12 @@ function startAutoSync() {
   if (autoStarted) return;
   autoStarted = true;
   const schedule = () => {
-    if (!token) return;
+    if (!cloudConnected()) return;
     clearTimeout(timer);
     timer = setTimeout(() => { void syncGoogle().catch(() => {}); }, 2000);
   };
   window.addEventListener("yellow-note-change", schedule);
   window.addEventListener("online", schedule);
   window.addEventListener("focus", schedule);
-  window.setInterval(() => { if (token && navigator.onLine) void syncGoogle().catch(() => {}); }, 60000);
+  window.setInterval(() => { if (cloudConnected() && navigator.onLine) void syncGoogle().catch(() => {}); }, 60000);
 }

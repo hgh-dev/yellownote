@@ -35,7 +35,10 @@ export function SettingsDialog({
     setBusy(true);
     setCloudMessage("");
     try {
-      if (connect) await connectGoogle();
+      if (connect) {
+        await connectGoogle();
+        if (import.meta.env.VITE_SERVER_SYNC === "true") return;
+      }
       await syncGoogle();
       setConnected(cloudConnected());
       setCloudMessage("Google Drive와 동기화했습니다.");
@@ -115,7 +118,13 @@ export function SettingsDialog({
             <button disabled={busy} onClick={() => void cloudAction(!connected)}>
               {connected ? "지금 동기화" : "Google 계정으로 연결"}
             </button>
-            {connected && <button disabled={busy} onClick={() => { disconnectGoogle(); setConnected(false); setCloudMessage("연결을 해제했습니다. 기기와 Drive의 기록은 유지됩니다."); }}>연결 해제</button>}
+            {connected && <button disabled={busy} onClick={() => {
+              setBusy(true);
+              void disconnectGoogle().then(() => {
+                setConnected(false);
+                setCloudMessage("로그아웃했습니다. 기기와 Drive의 기록은 유지됩니다.");
+              }).catch((e: unknown) => setCloudMessage(e instanceof Error ? e.message : "로그아웃하지 못했습니다.")).finally(() => setBusy(false));
+            }}>로그아웃</button>}
           </div>
         ) : <p className="help">Google OAuth 클라이언트 ID 설정 후 사용할 수 있습니다.</p>}
         {cloudMessage && <p className="feedback" role="status">{cloudMessage}</p>}

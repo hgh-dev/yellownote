@@ -4,10 +4,26 @@
 
 ## Google Drive 동기화 설정
 
+현재 GitHub Pages 배포는 서버 설정이 끝날 때까지 기존 로그인 방식을 사용합니다. 로그인 유지 기능을 켜려면 아래의 Cloud Run 서버를 배포하고 GitHub Actions 변수 두 개를 설정해야 합니다. 공개 앱 주소 `https://hgh-dev.github.io/yellownote/`는 유지됩니다. 같은 주소이므로 기기의 IndexedDB 기록도 그대로 사용합니다.
+
+### 로그인 유지 서버 배포
+
+1. Google Cloud 프로젝트 `yellownote`에서 **Drive API, Cloud Run API, Cloud Build API, Artifact Registry API, Secret Manager API, Firestore API**를 사용 설정합니다. Firestore 데이터베이스 `(default)`를 Native 모드로 생성합니다.
+2. 기존 OAuth 웹 클라이언트의 **클라이언트 보안 비밀번호**를 확인합니다. 채팅이나 GitHub 저장소에 붙여 넣지 말고 Secret Manager 비밀 `yellownote-oauth-client-secret`에 저장합니다. 별도로 `openssl rand -base64 32`로 생성한 키를 `yellownote-session-key` 비밀에 저장합니다.
+3. Cloud Run 서비스 계정에 **Cloud Datastore User** 역할을 주고, 두 비밀에 **Secret Manager Secret Accessor** 권한을 줍니다. Cloud Run 서비스를 `Dockerfile`의 소스로 배포합니다. 환경 변수는 `GOOGLE_CLOUD_PROJECT=yellownote`, `GOOGLE_CLIENT_ID=829935199700-3f04te123lbub99p7i2lb1q1dthbm345.apps.googleusercontent.com`, `FRONTEND_URL=https://hgh-dev.github.io/yellownote/`, `PUBLIC_BASE_URL=<Cloud Run HTTPS 주소>`입니다. 비밀 환경 변수는 `GOOGLE_CLIENT_SECRET=yellownote-oauth-client-secret:latest`, `SESSION_ENCRYPTION_KEY=yellownote-session-key:latest`로 연결합니다. 최초 배포 시 Cloud Run 주소를 아직 모르면 `PUBLIC_BASE_URL=https://example.invalid`로 배포한 다음 표시된 실제 HTTPS 주소로 바로 수정합니다. API는 브라우저가 접근해야 하므로 Cloud Run 서비스에 공개 호출을 허용합니다. 서버가 세션 키를 검사합니다.
+4. Google 인증 플랫폼의 기존 OAuth 웹 클라이언트에서 **승인된 리디렉션 URI**에 `<Cloud Run HTTPS 주소>/api/auth/callback`을 추가합니다. 정확히 일치해야 합니다. OAuth 동의 화면이 **테스트 중**이면 Drive 권한의 갱신 토큰이 7일 후 만료될 수 있으므로 장기 로그인에는 앱을 **프로덕션**으로 게시해야 합니다.
+5. GitHub 저장소 **Settings → Secrets and variables → Actions → Variables**에 `SERVER_SYNC=true`와 `SYNC_API_URL=<Cloud Run HTTPS 주소>`를 추가하고 Pages 워크플로를 다시 실행합니다. 배포 후 기존 주소에서 Google 계정으로 다시 한 번 연결하면 이후 재실행 시 세션을 복구합니다.
+
+갱신 토큰은 서버에서 암호화해 Firestore에 저장합니다. 브라우저는 취소 가능한 세션 키만 보관합니다. 로그아웃하면 해당 기기의 서버 세션과 브라우저 키를 삭제합니다. 브라우저 데이터를 지우거나 Google에서 앱 권한을 취소하거나 계정 정책에 따라 갱신 토큰이 만료되면 다시 로그인해야 합니다. 다른 기기의 세션은 각 기기에서 별도로 로그아웃합니다.
+
+서버 배포 전에 현재 사이트를 계속 사용해도 기존 동기화 데이터는 유지됩니다. 새 서버는 같은 Google Drive 앱 전용 파일 `yellow-note-sync.json`을 읽습니다. 서버 배포 후에도 현재 주소를 유지하므로 JSON으로 기기 데이터를 옮길 필요가 없습니다.
+
+### 기존 브라우저 방식
+
 1. Google Cloud Console에서 Google Drive API를 사용 설정하고 OAuth 동의 화면을 구성합니다. 테스트 모드라면 사용할 계정을 테스트 사용자로 등록합니다.
 2. OAuth 웹 클라이언트의 **승인된 JavaScript 원본**에 배포 주소의 원본(예: `https://hgh-dev.github.io`)과 로컬 개발 주소 `http://127.0.0.1:5173`을 등록합니다. 원본에는 `/yellownote/` 같은 경로를 넣지 않습니다.
 3. 이 저장소에는 웹 클라이언트 ID가 이미 설정되어 있습니다. 다른 Google Cloud 프로젝트로 바꿀 때만 로컬 `.env.local` 또는 GitHub Actions 변수 `GOOGLE_CLIENT_ID`에 새 ID를 지정합니다. 클라이언트 ID는 웹 앱에 공개되는 식별자이며 비밀 키가 아닙니다.
-4. 앱의 **설정 → Google 계정으로 연결**에서 Google Drive 앱 전용 저장 공간 권한을 승인합니다. 연결 후에는 온라인에서 변경사항을 자동으로 동기화하고, **지금 동기화**로 즉시 실행할 수 있습니다. 로그인 토큰은 메모리에만 보관하므로 앱을 다시 열면 다시 연결해야 합니다.
+4. 앱의 **설정 → Google 계정으로 연결**에서 Google Drive 앱 전용 저장 공간 권한을 승인합니다. 연결 후에는 온라인에서 변경사항을 자동으로 동기화하고, **지금 동기화**로 즉시 실행할 수 있습니다. 서버 배포 전에는 로그인 토큰이 메모리에만 남아 앱을 다시 열면 다시 연결해야 합니다.
 
 동기화 데이터는 Google Drive의 앱 전용 저장 공간에 저장되며 일반 Drive 파일 목록에는 보이지 않습니다. 할 일과 페이지는 수정 시각을 기준으로 합치고 삭제 기록을 유지합니다. 동시에 여러 기기에서 같은 항목을 편집하는 경우 마지막으로 저장된 항목이 적용됩니다. 중요한 기록은 JSON 파일로도 백업하세요. 다른 기기에서도 새 버전으로 업데이트한 뒤 동기화하세요.
 
