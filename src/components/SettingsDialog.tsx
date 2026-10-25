@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Download, Upload, Smartphone, Cloud } from "lucide-react";
 import { Dialog } from "./Dialog";
-import { useNote, setSettings, restore } from "../data/store";
+import { useNote, restore } from "../data/store";
 import { makeBackup, parseBackup } from "../lib/backup";
 import { localDate } from "../lib/tasks";
 import type { Backup } from "../types";
@@ -93,17 +93,6 @@ export function SettingsDialog({
         if (!busy) onClose();
       }}
     >
-      <div className="setting-line">
-        <label htmlFor="show-completed">
-          완료된 할 일 표시<span>숨겨도 기록은 그대로 보관됩니다.</span>
-        </label>
-        <input
-          id="show-completed"
-          type="checkbox"
-          checked={settings.showCompleted}
-          onChange={(e) => setSettings({ showCompleted: e.target.checked })}
-        />
-      </div>
       <section className="settings-section">
         <h3><Cloud size={17} /> Google 계정 동기화</h3>
         <p className="help">

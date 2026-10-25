@@ -31,7 +31,7 @@ import {
   flush,
   updateTask,
 } from "./data/store";
-import { sortedTasks, newTask, reorderTasks } from "./lib/tasks";
+import { sortedTasks, newTask, reorderTasks, localDate } from "./lib/tasks";
 import { useToday } from "./hooks/useToday";
 import { TaskRow } from "./components/TaskRow";
 import { SortDialog, sortLabel } from "./components/SortDialog";
@@ -39,11 +39,12 @@ import { SettingsDialog, type InstallEvent } from "./components/SettingsDialog";
 import { Dialog } from "./components/Dialog";
 import { PageSidebar } from "./components/PageSidebar";
 import { firebaseSaveStatus, restoreFirebaseSession } from "./lib/firebaseSync";
-function savedClock(iso: string | null) {
+function savedDateTime(iso: string | null) {
   if (!iso) return "";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  return [date.getHours(), date.getMinutes(), date.getSeconds()].map((value) => String(value).padStart(2, "0")).join(":");
+  const time = [date.getHours(), date.getMinutes(), date.getSeconds()].map((value) => String(value).padStart(2, "0")).join(":");
+  return `${localDate(date)} ${time}`;
 }
 export default function App() {
   const { tasks, pages, settings, ready, saving, lastSavedAt, error } = useNote();
@@ -265,14 +266,16 @@ export default function App() {
       setUpdating(false);
     }
   }
-  const localTime = savedClock(lastSavedAt);
+  const localTime = savedDateTime(lastSavedAt);
+  const todayLabel = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "long" })
+    .format(new Date(`${today}T12:00:00`));
   const synced = cloudStatus.connected && !cloudStatus.syncing && !cloudStatus.error &&
     cloudStatus.lastSyncedAt && lastSavedAt && cloudStatus.lastSyncedAt >= lastSavedAt;
   const statusText = !ready ? "노트를 여는 중…" : error ? "저장 확인 필요" : saving ? "저장 중…" :
     offline ? `오프라인 · 자동 저장됨(${localTime})` :
     cloudStatus.error ? `자동 저장됨(${localTime}) · 동기화 확인 필요` :
     cloudStatus.syncing ? `자동 저장됨(${localTime}) · 동기화 중…` :
-    synced ? `자동 저장 및 동기화됨(${savedClock(cloudStatus.lastSyncedAt)})` : `자동 저장됨(${localTime})`;
+    synced ? `자동 저장 및 동기화됨(${savedDateTime(cloudStatus.lastSyncedAt)})` : `자동 저장됨(${localTime})`;
   const group = (items: typeof tasks) => (
     <SortableContext
       items={items.map((t) => t.id)}
@@ -308,19 +311,10 @@ export default function App() {
             </span>
             Yellow Note<span className="brand-dot">.</span>
           </a>
-          <span className="brand-caption">MY EVERYDAY NOTE</span>
+          <span className="brand-caption">작은 기록이 만드는 가벼운 하루</span>
           </div>
         </div>
         <nav aria-label="노트 도구">
-          <button
-            className="toolbar-button"
-            aria-label="정렬"
-            onClick={() => setPanel("sort")}
-            disabled={!ready}
-          >
-            <ArrowDownUp size={18} />
-            <span>정렬</span>
-          </button>
           <button
             className="toolbar-button"
             aria-label="설정"
@@ -393,11 +387,7 @@ export default function App() {
           )}
         </section>
         <footer className="paper-footer">
-          <p>작은 기록이 만드는 가벼운 하루</p>
-          <div className="legal-links">
-            <a href={`${import.meta.env.BASE_URL}privacy.html`}>개인정보처리방침</a>
-            <a href={`${import.meta.env.BASE_URL}terms.html`}>서비스 약관</a>
-          </div>
+          <p>{todayLabel}</p>
           <span className="save-state" role="status">
             {offline && ready && !error && !saving ? <CloudOff size={13} /> : ready && !error && !saving ? <Check size={13} /> : null}
             {statusText}

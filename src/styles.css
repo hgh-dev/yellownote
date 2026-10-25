@@ -125,9 +125,9 @@ select {
 .brand-caption {
   display: block;
   margin: 6px 0 0 34px;
-  font-size: 9px;
-  letter-spacing: 2.1px;
-  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  font-weight: 500;
   color: #8c7d4e;
   white-space: nowrap;
 }
@@ -660,26 +660,8 @@ select {
 }
 .sort-criteria { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .sort-directions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.completion-options button:last-child { grid-column: 1 / -1; }
 .sort-options button { gap: 4px; }
-.setting-line {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 0 22px;
-  gap: 12px;
-  font-size: 14px;
-}
-.setting-line span {
-  display: block;
-  font-size: 11px;
-  color: #948565;
-  margin-top: 7px;
-}
-.setting-line input {
-  accent-color: #76754b;
-  width: 20px;
-  height: 20px;
-}
 .settings-section {
   padding: 18px 0;
   border-top: 1px solid #cfbd863f;
@@ -968,8 +950,7 @@ textarea {
   line-height: 22px;
   letter-spacing: 0;
 }
-.legal-links { display: flex; justify-content: flex-end; gap: 14px; line-height: 22px; letter-spacing: 0; }
-.legal-links a, .settings-footer a { text-decoration: underline; text-underline-offset: 2px; }
+.settings-footer a { text-decoration: underline; text-underline-offset: 2px; }
 .move-page-options { display: grid; gap: 5px; max-height: min(55vh, 360px); overflow-y: auto; margin-top: 14px; }
 .move-page-option { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; width: 100%; padding: 0 12px; text-align: left; border-radius: 5px; background: #fff5ca; }
 .move-page-option span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1007,9 +988,8 @@ textarea {
 @media (max-width: 520px) {
   .brand-group { gap: 2px; }
   .page-toggle { margin-left: -14px; width: 36px; }
-  .app-header nav > .toolbar-button:first-child { display: none; }
   .brand { font-size: 21px; }
-  .brand-caption { font-size: 8px; letter-spacing: 1px; }
+  .brand-caption { font-size: 9px; letter-spacing: 0; }
 }
 @media (max-width: 520px) {
   .app-header { grid-template-rows: 88px 44px; min-height: 132px; }

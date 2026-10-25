@@ -4,12 +4,29 @@ test("자동 저장 시각을 초 단위로 표시하고 재접속 후에도 유
   await page.getByRole("button", { name: "새 할 일 추가", exact: true }).click();
   await page.getByLabel("할 일 제목", { exact: true }).fill("저장 시각 확인");
   const status = page.locator(".paper-footer .save-state");
-  await expect(status).toHaveText(/자동 저장됨\(\d{2}:\d{2}:\d{2}\)/);
+  await expect(status).toHaveText(/자동 저장됨\(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\)/);
   const saved = await status.innerText();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.reload();
   await expect(page.getByLabel("할 일 제목", { exact: true })).toHaveValue("저장 시각 확인");
   await expect(status).toHaveText(saved);
+});
+test("상단 문구, 하단 날짜, 설정 항목을 요청한 위치에 표시한다", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator(".brand-caption")).toHaveText("작은 기록이 만드는 가벼운 하루");
+  await expect(page.locator(".paper-footer p")).toHaveText(/\d{4}년 \d{1,2}월 \d{1,2}일 [월화수목금토일]요일/);
+  await expect(page.locator(".paper-footer a")).toHaveCount(0);
+  await expect(page.locator(".app-header nav button")).toHaveCount(1);
+  await expect(page.locator(".current-sort")).toBeVisible();
+  await page.getByRole("button", { name: "설정", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "노트 설정" });
+  await expect(dialog.getByRole("link", { name: "개인정보처리방침" })).toBeVisible();
+  await expect(dialog.getByRole("link", { name: "서비스 약관" })).toBeVisible();
+  await expect(dialog.getByText("완료된 할 일 표시")).toHaveCount(0);
+  await page.getByRole("button", { name: "닫기", exact: true }).click();
+  await page.locator(".current-sort").click();
+  await expect(page.getByRole("dialog", { name: "할 일 정렬" }).getByRole("button", { name: "완료한 일 표시 안함" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 test("한 줄 제목과 화면 너비에 따른 행 배치", async ({ page }) => {
   await page.setViewportSize({ width: 1200, height: 900 });
@@ -96,13 +113,15 @@ test("할 일 편집, 메모, 핀, 완료 숨김, 재접속, 삭제", async ({ p
   );
   await page.getByLabel("산림사업 설계서 검토 완료", { exact: true }).check();
   await expect(title).toHaveCSS("text-decoration-color", "rgb(199, 96, 81)");
-  await page.getByRole("button", { name: "설정", exact: true }).click();
-  await page.getByLabel("완료된 할 일 표시").uncheck();
+  await page.locator(".current-sort").click();
+  await page.getByRole("dialog", { name: "할 일 정렬" }).getByRole("button", { name: "완료한 일 표시 안함" }).click();
+  await expect(page.getByRole("dialog", { name: "할 일 정렬" }).getByRole("button", { name: "완료한 일 표시 안함" })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "닫기", exact: true }).click();
   await expect(page.getByTestId("task-row")).toHaveCount(0);
   await page.reload();
-  await page.getByRole("button", { name: "설정", exact: true }).click();
-  await page.getByLabel("완료된 할 일 표시").check();
+  await page.locator(".current-sort").click();
+  await expect(page.getByRole("dialog", { name: "할 일 정렬" }).getByRole("button", { name: "완료한 일 표시 안함" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("dialog", { name: "할 일 정렬" }).getByRole("button", { name: "포함하여 정렬" }).click();
   await page.getByRole("button", { name: "닫기", exact: true }).click();
   await expect(title).toHaveValue("산림사업 설계서 검토");
   await expect(page.getByTestId("task-row")).toHaveAttribute(
