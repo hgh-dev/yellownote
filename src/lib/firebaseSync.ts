@@ -25,6 +25,8 @@ let syncAgain = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let autoStarted = false;
 let readyPromise: Promise<void> | null = null;
+let activationPromise: Promise<void> | null = null;
+let activatingUid: string | null = null;
 let resolveReady: (() => void) | null = null;
 let rejectReady: ((error: Error) => void) | null = null;
 let subscriptions: Unsubscribe[] = [];
@@ -71,10 +73,11 @@ function startAutoSync() {
   window.addEventListener('focus', () => scheduleSync(0));
   window.setInterval(() => { if (navigator.onLine) scheduleSync(0); }, 30 * 60 * 1000);
 }
-async function attachUser(user: User): Promise<void> {
+async function activateUser(user: User): Promise<void> {
   if (activeUid === user.uid && readyPromise) return readyPromise;
   stopListening();
   const owner = await db.meta.get(ownerKey);
+  if (auth().currentUser?.uid !== user.uid) return;
   if (owner && owner.value !== user.uid) {
     await signOut(auth());
     throw new Error('이 기기의 노트는 다른 Google 계정에 연결되어 있습니다. 기존 계정으로 로그인해 주세요.');
@@ -112,6 +115,18 @@ async function attachUser(user: User): Promise<void> {
     updated();
   }, subscriptionError));
   return readyPromise;
+}
+function attachUser(user: User): Promise<void> {
+  if (activeUid === user.uid && readyPromise) return readyPromise;
+  if (activatingUid === user.uid && activationPromise) return activationPromise;
+  activatingUid = user.uid;
+  activationPromise = activateUser(user).finally(() => {
+    if (activatingUid === user.uid) {
+      activatingUid = null;
+      activationPromise = null;
+    }
+  });
+  return activationPromise;
 }
 async function setupFirebase() {
   if (!configured) throw new Error('Firebase 웹 앱 설정이 필요합니다.');
