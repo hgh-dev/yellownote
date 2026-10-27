@@ -290,11 +290,12 @@ select {
 }
 .task-title-group {
   display: grid;
-  grid-template-columns: minmax(0, max-content) 28px;
+  grid-template-columns: minmax(0, max-content);
   align-items: center;
   flex: 0 1 auto;
   min-width: 0;
 }
+.task-title-group.has-memo { grid-template-columns: minmax(0, max-content) 28px; }
 .task-title-measure,
 .task-title {
   grid-column: 1;

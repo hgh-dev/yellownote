@@ -48,7 +48,7 @@ test("한 줄 제목과 화면 너비에 따른 행 배치", async ({ page }) =>
         titleRight: box(".task-title").right,
         due: box(".date-control").top,
         priority: box(".priority").top,
-        memo: box(".memo-toggle").left,
+        memo: element.querySelector(".memo-toggle")?.getBoundingClientRect().left ?? null,
         checkbox: box(".task-checkbox span").right,
         handle: box(".drag-handle").right,
         margin: Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--margin")),
@@ -57,15 +57,43 @@ test("한 줄 제목과 화면 너비에 따른 행 배치", async ({ page }) =>
   let bounds = await position();
   expect(bounds.due).toBe(bounds.title);
   expect(bounds.priority).toBe(bounds.title);
-  expect(bounds.memo - bounds.titleRight).toBeLessThan(2);
+  expect(bounds.memo).toBeNull();
   expect(bounds.checkbox).toBeLessThan(bounds.margin);
   expect(bounds.handle).toBeLessThan(bounds.checkbox);
+  await page.getByRole("button", { name: "한 줄 업무 더보기" }).click();
+  await page.getByRole("button", { name: "한 줄 업무 메모 추가" }).click();
+  await page.getByLabel("진행상황 메모").fill("메모 내용");
+  bounds = await position();
+  expect(bounds.memo).not.toBeNull();
+  expect(bounds.memo! - bounds.titleRight).toBeLessThan(2);
   expect(await page.locator(".app-header").evaluate((element) => element.getBoundingClientRect().left)).toBe(0);
   await page.setViewportSize({ width: 393, height: 852 });
   bounds = await position();
   expect(bounds.due).toBe(bounds.title);
   expect(bounds.priority).toBe(bounds.title);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+test("메모 메뉴에서 추가와 삭제를 하고 내용이 있을 때만 메모 버튼을 표시한다", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "새 할 일 추가", exact: true }).click();
+  await page.getByLabel("할 일 제목", { exact: true }).fill("메모를 관리할 일");
+  const row = page.getByTestId("task-row");
+  await expect(row.locator(".memo-toggle")).toHaveCount(0);
+  await row.getByRole("button", { name: "메모를 관리할 일 더보기" }).click();
+  await expect(row.locator(".row-menu .menu-action")).toHaveText(["상단 고정", "페이지 이동", "메모 추가", "삭제"]);
+  await row.getByRole("button", { name: "메모를 관리할 일 메모 추가" }).click();
+  await expect(row.getByLabel("진행상황 메모")).toBeFocused();
+  await row.getByLabel("진행상황 메모").fill("기록할 내용");
+  await expect(row.locator(".memo-toggle")).toHaveCount(1);
+  await row.getByRole("button", { name: "메모를 관리할 일 더보기" }).click();
+  await expect(row.getByRole("button", { name: "메모를 관리할 일 메모 삭제" })).toBeVisible();
+  await row.getByRole("button", { name: "메모를 관리할 일 메모 삭제" }).click();
+  await expect(row.locator(".memo-toggle")).toHaveCount(0);
+  await expect(row.getByLabel("진행상황 메모")).toHaveCount(0);
+  await page.reload();
+  await expect(row.locator(".memo-toggle")).toHaveCount(0);
+  await row.getByRole("button", { name: "메모를 관리할 일 더보기" }).click();
+  await expect(row.getByRole("button", { name: "메모를 관리할 일 메모 추가" })).toBeVisible();
 });
 test("PC에서 Enter로 새 줄을 만들고 제목 Enter는 편집을 마친다", async ({ page }) => {
   test.skip(test.info().project.name === "mobile", "PC 키보드 단축키");
@@ -94,7 +122,8 @@ test("할 일 편집, 메모, 핀, 완료 숨김, 재접속, 삭제", async ({ p
   await title.fill("산림사업 설계서 검토");
   await page.getByLabel("기한", { exact: true }).fill("2026-10-24");
   await page.getByLabel("우선순위", { exact: true }).selectOption("high");
-  await page.getByRole("button", { name: "메모 추가", exact: true }).click();
+  await page.getByRole("button", { name: "산림사업 설계서 검토 더보기" }).click();
+  await page.getByRole("button", { name: "산림사업 설계서 검토 메모 추가" }).click();
   await page
     .getByLabel("진행상황 메모")
     .fill("10월 20일: 접수\n10월 21일: 현장 확인");
@@ -169,7 +198,8 @@ test("오프라인 재시작과 저장 및 모바일 넘침 방지", async ({
   await page
     .getByLabel("할 일 제목", { exact: true })
     .fill("오프라인에서도 기록하는 긴 제목 ".repeat(10));
-  await page.getByRole("button", { name: "메모 추가", exact: true }).click();
+  await page.getByRole("button", { name: /오프라인에서도 기록하는 긴 제목.*더보기/ }).click();
+  await page.getByRole("button", { name: /오프라인에서도 기록하는 긴 제목.*메모 추가/ }).click();
   await page.getByLabel("진행상황 메모").fill("진행상황\n".repeat(20));
   await page.getByRole("button", { name: "접기", exact: true }).click();
   await expect(page.getByText("저장 중…", { exact: true })).toHaveCount(0);
@@ -379,10 +409,8 @@ test("마우스 드래그 및 320·768·1440px 화면 검증", async ({
     .getByLabel("우선순위", { exact: true })
     .first()
     .selectOption("high");
-  await page
-    .getByRole("button", { name: "메모 추가", exact: true })
-    .first()
-    .click();
+  await page.getByRole("button", { name: "산림사업 설계서 검토 더보기" }).click();
+  await page.getByRole("button", { name: "산림사업 설계서 검토 메모 추가" }).click();
   await expect(page.getByLabel("진행상황 메모")).toHaveCSS("height", "44px");
   await expect(page.getByLabel("할 일 제목", { exact: true }).first()).toHaveAttribute("spellcheck", "false");
   await page

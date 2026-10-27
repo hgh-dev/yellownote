@@ -87,6 +87,7 @@ export function TaskRow({
     zIndex: isDragging ? 2 : undefined,
   };
   const label = task.title.trim() || "제목 없는 할 일";
+  const hasMemo = !!task.memo.trim();
   return (
     <article
       id={`task-${task.id}`}
@@ -139,7 +140,7 @@ export function TaskRow({
           />
           <span>{task.completed && <Check size={16} strokeWidth={2.2} />}</span>
         </label>
-        <div className="task-title-group">
+        <div className={`task-title-group ${hasMemo ? "has-memo" : ""}`}>
         <span className="task-title-measure" aria-hidden="true">
           {task.title.replace(/[\r\n]+/g, " ") || "새로운 할 일을 적어 보세요"}
         </span>
@@ -172,16 +173,16 @@ export function TaskRow({
             );
           }}
         />
-        <button
-          className={`icon-button memo-toggle ${task.memo ? "has-memo" : ""}`}
-          aria-label={memoOpen ? "접기" : task.memo ? "메모" : "메모 추가"}
+        {hasMemo && <button
+          className="icon-button memo-toggle has-memo"
+          aria-label={memoOpen ? "접기" : "메모"}
           title={memoOpen ? "메모 접기" : "메모 열기"}
           aria-expanded={memoOpen}
           aria-controls={`memo-${task.id}`}
           onClick={() => setMemoOpen(!memoOpen)}
         >
           {memoOpen ? <ChevronUp size={17} /> : <MessageSquare size={17} />}
-        </button>
+        </button>}
         </div>
         <div className="task-details">
           <div className={`date-stack ${task.dueDate ? "has-date" : ""}`}>
@@ -273,6 +274,23 @@ export function TaskRow({
             페이지 이동
           </button>
           <button
+            className={`menu-action ${hasMemo ? "delete" : ""}`}
+            aria-label={`${label} ${hasMemo ? "메모 삭제" : "메모 추가"}`}
+            onClick={() => {
+              setMenuOpen(false);
+              if (hasMemo) {
+                updateTask(task.id, { memo: "" }, true);
+                setMemoOpen(false);
+              } else {
+                setMemoOpen(true);
+                requestAnimationFrame(() => memo.current?.focus());
+              }
+            }}
+          >
+            {hasMemo ? <Trash2 size={17} /> : <MessageSquare size={17} />}
+            {hasMemo ? "메모 삭제" : "메모 추가"}
+          </button>
+          <button
             className="menu-action delete"
             aria-label={`${label} 삭제`}
             onClick={() => {
@@ -297,6 +315,10 @@ export function TaskRow({
             value={task.memo}
             onChange={(e) => updateTask(task.id, { memo: e.target.value })}
             onBlur={() => {
+              if (!hasMemo) {
+                if (task.memo) updateTask(task.id, { memo: "" });
+                setMemoOpen(false);
+              }
               void flush().catch(() => {});
             }}
           />
