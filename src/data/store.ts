@@ -193,10 +193,11 @@ export function deleteTask(id: string) {
   pending.set(id, null);
   schedule(true);
 }
-export function deleteCompletedTasks(): number {
-  const completed = state.tasks.filter((task) => task.completed);
+export function deleteCompletedTasks(pageId: string | null): number {
+  const completed = state.tasks.filter((task) => task.completed && (pageId === "all" || task.pageId === pageId));
   if (!completed.length) return 0;
-  emit({ tasks: state.tasks.filter((task) => !task.completed) });
+  const ids = new Set(completed.map((task) => task.id));
+  emit({ tasks: state.tasks.filter((task) => !ids.has(task.id)) });
   completed.forEach((task) => pending.set(task.id, null));
   schedule(true);
   return completed.length;

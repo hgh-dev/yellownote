@@ -58,19 +58,23 @@ it("완료와 고정은 보존, 삭제는 메모까지 제거", async () => {
   await flush();
   expect(await db.tasks.get(t.id)).toBeUndefined();
 });
-it("모든 페이지의 완료된 할 일을 한 번에 삭제하고 동기화용 삭제 기록을 남김", async () => {
+it("현재 페이지의 완료된 할 일만 삭제하고 동기화용 삭제 기록을 남김", async () => {
   const pageId = addPage("일괄 삭제 테스트");
   const doneInPage = { ...newTask(11), title: "페이지 완료", pageId, completed: true, completedAt: new Date().toISOString() };
   const doneUnsorted = { ...newTask(12), title: "미분류 완료", completed: true, completedAt: new Date().toISOString() };
   const remaining = { ...newTask(13), title: "진행 중", pageId };
   for (const task of [doneInPage, doneUnsorted, remaining]) addTask(task);
   await flush();
-  expect(deleteCompletedTasks()).toBe(2);
+  expect(deleteCompletedTasks(pageId)).toBe(1);
   await flush();
   expect(await db.tasks.get(doneInPage.id)).toBeUndefined();
-  expect(await db.tasks.get(doneUnsorted.id)).toBeUndefined();
+  expect(await db.tasks.get(doneUnsorted.id)).toBeDefined();
   expect(await db.tasks.get(remaining.id)).toBeDefined();
   expect(await db.deleted.get(doneInPage.id)).toBeDefined();
+  expect(await db.deleted.get(doneUnsorted.id)).toBeUndefined();
+  expect(deleteCompletedTasks(null)).toBe(1);
+  await flush();
+  expect(await db.tasks.get(doneUnsorted.id)).toBeUndefined();
   expect(await db.deleted.get(doneUnsorted.id)).toBeDefined();
 });
 it("저장 실패 후 보류된 변경을 재시도로 복구", async () => {

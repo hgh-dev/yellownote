@@ -151,8 +151,9 @@ select {
 }
 .app-header nav {
   display: flex;
-  gap: 10px;
+  gap: 0;
   justify-self: end;
+  align-items: center;
 }
 .header-meta {
   grid-column: 1 / -1;
@@ -183,14 +184,42 @@ select {
   white-space: nowrap;
 }
 .toolbar-button {
+  width: 44px;
   min-height: 44px;
-  padding: 0 12px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  justify-content: center;
+  border-radius: 5px;
+}
+.account-button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  color: #62573d;
+}
+.account-button.signed-out {
+  height: 32px;
+  border: 1px solid #a79360;
+  border-radius: 17px;
+}
+.account-avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #7754c5;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
 }
 .toolbar-button:hover,
+.account-button:hover,
 .icon-button:hover {
   background: #a1883012;
 }
@@ -649,10 +678,13 @@ select {
   text-align: left;
   padding: 10px 12px;
   border-radius: 5px;
+  border: 1px solid #c9b87e;
+  background: #fff8d04d;
   font-size: 13px;
 }
 .sort-options button[aria-pressed="true"] {
   background: #eee3b4;
+  border-color: #b49c61;
   color: #665b39;
 }
 .sort-options button:hover {
@@ -787,12 +819,6 @@ textarea {
   }
   .app-header nav {
     gap: 0;
-  }
-  .toolbar-button {
-    padding: 0 11px;
-  }
-  .toolbar-button span {
-    display: none;
   }
   .header-meta {
     font-size: 10px;

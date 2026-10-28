@@ -39,9 +39,10 @@ import { useToday } from "./hooks/useToday";
 import { TaskRow } from "./components/TaskRow";
 import { SortDialog, sortLabel } from "./components/SortDialog";
 import { SettingsDialog, type InstallEvent } from "./components/SettingsDialog";
+import { GoogleAccountDialog } from "./components/GoogleAccountDialog";
 import { Dialog } from "./components/Dialog";
 import { PageSidebar } from "./components/PageSidebar";
-import { firebaseSaveStatus, restoreFirebaseSession } from "./lib/firebaseSync";
+import { firebaseAccountEmail, firebaseSaveStatus, restoreFirebaseSession } from "./lib/firebaseSync";
 function savedDateTime(iso: string | null) {
   if (!iso) return "";
   const date = new Date(iso);
@@ -53,7 +54,7 @@ export default function App() {
   const { tasks, pages, settings, ready, saving, lastSavedAt, error } = useNote();
   const [cloudStatus, setCloudStatus] = useState(firebaseSaveStatus);
   const today = useToday(),
-    [panel, setPanel] = useState<"sort" | "settings" | null>(null);
+    [panel, setPanel] = useState<"sort" | "settings" | "account" | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null),
     [deleteCompletedOpen, setDeleteCompletedOpen] = useState(false),
     [moveTaskId, setMoveTaskId] = useState<string | null>(null),
@@ -344,13 +345,21 @@ export default function App() {
         </div>
         <nav aria-label="노트 도구">
           <button
+            className={`account-button ${cloudStatus.connected ? "signed-in" : "signed-out"}`}
+            aria-label={cloudStatus.connected ? `Google 계정 (${firebaseAccountEmail() || "로그인됨"})` : "로그인"}
+            title={cloudStatus.connected ? firebaseAccountEmail() || "Google 계정" : "Google 계정 로그인"}
+            onClick={() => setPanel("account")}
+            disabled={!ready}
+          >
+            {cloudStatus.connected ? <span className="account-avatar" aria-hidden="true">G</span> : "로그인"}
+          </button>
+          <button
             className="toolbar-button"
             aria-label="설정"
             onClick={() => setPanel("settings")}
             disabled={!ready}
           >
             <SettingsIcon size={19} />
-            <span>설정</span>
           </button>
         </nav>
         <div className="header-meta">
@@ -456,9 +465,10 @@ export default function App() {
         </span>
       )}
       {panel === "sort" && (
-        <SortDialog settings={settings} completedCount={tasks.filter((task) => task.completed).length}
+        <SortDialog settings={settings} completedCount={scopedTasks.filter((task) => task.completed).length} pageTitle={pageTitle}
           onDeleteCompleted={() => { setPanel(null); setDeleteCompletedOpen(true); }} onClose={() => setPanel(null)} />
       )}
+      {panel === "account" && <GoogleAccountDialog onClose={() => setPanel(null)} />}
       {sidebarOpen && <PageSidebar pages={pages} tasks={tasks} selected={selectedPage} onSelect={choosePage} onClose={closeSidebar} />}
       {panel === "settings" && (
         <SettingsDialog
@@ -498,10 +508,10 @@ export default function App() {
       )}
       {deleteCompletedOpen && (
         <Dialog title="완료한 일을 모두 삭제하시겠습니까?" onClose={() => setDeleteCompletedOpen(false)}>
-          <p className="help">모든 페이지의 완료한 일 {tasks.filter((task) => task.completed).length}개와 메모가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.</p>
+          <p className="help">‘{pageTitle}’ 목록의 완료한 일 {scopedTasks.filter((task) => task.completed).length}개와 메모가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.</p>
           <div className="button-pair dialog-actions">
             <button onClick={() => setDeleteCompletedOpen(false)}>취소</button>
-            <button className="danger" onClick={() => { deleteCompletedTasks(); setDeleteCompletedOpen(false); }}>모두 삭제</button>
+            <button className="danger" onClick={() => { deleteCompletedTasks(selectedPage); setDeleteCompletedOpen(false); }}>모두 삭제</button>
           </div>
         </Dialog>
       )}

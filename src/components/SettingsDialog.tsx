@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import { Download, Upload, Smartphone, Cloud } from "lucide-react";
+import { useRef, useState } from "react";
+import { Download, Upload, Smartphone } from "lucide-react";
 import { Dialog } from "./Dialog";
 import { useNote, restore } from "../data/store";
 import { makeBackup, parseBackup } from "../lib/backup";
 import { localDate } from "../lib/tasks";
 import type { Backup } from "../types";
-import { firebaseAvailable, firebaseConnected, firebaseAccountEmail, firebaseError, connectFirebase, disconnectFirebase, syncFirebase } from "../lib/firebaseSync";
 export interface InstallEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: string }>;
@@ -24,27 +23,6 @@ export function SettingsDialog({
   const [candidate, setCandidate] = useState<Backup | null>(null),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
-  const [connected, setConnected] = useState(firebaseConnected());
-  const [cloudMessage, setCloudMessage] = useState("");
-  useEffect(() => {
-    const update = () => { setConnected(firebaseConnected()); if (firebaseError()) setCloudMessage(firebaseError()); };
-    window.addEventListener("yellow-note-cloud-status", update);
-    update();
-    return () => window.removeEventListener("yellow-note-cloud-status", update);
-  }, []);
-  async function cloudAction(connect: boolean) {
-    setBusy(true);
-    setCloudMessage("");
-    try {
-      if (connect) await connectFirebase();
-      await syncFirebase();
-      setConnected(firebaseConnected());
-      setCloudMessage("Firebase와 동기화했습니다.");
-    } catch (e) {
-      setCloudMessage(e instanceof Error ? e.message : "동기화하지 못했습니다.");
-      setConnected(firebaseConnected());
-    } finally { setBusy(false); }
-  }
   function download() {
     // Export the current in-memory content even if browser storage is full.
     const url = URL.createObjectURL(
@@ -93,30 +71,6 @@ export function SettingsDialog({
         if (!busy) onClose();
       }}
     >
-      <section className="settings-section">
-        <h3><Cloud size={17} /> Google 계정 동기화</h3>
-        <p className="help">
-          Google 계정으로 로그인하면 할 일과 설정을 Firebase에 저장하고,
-          온라인일 때 다른 기기의 변경사항을 자동으로 합칩니다. 로그아웃 전까지 로그인 상태가 유지됩니다.
-          오프라인에서도 이 기기에 저장됩니다.
-        </p>
-        {connected && firebaseAccountEmail() && <p className="help">연결된 계정: {firebaseAccountEmail()}</p>}
-        {firebaseAvailable() ? (
-          <div className="button-pair">
-            <button disabled={busy} onClick={() => void cloudAction(!connected)}>
-              {connected ? "지금 동기화" : "Google 계정으로 연결"}
-            </button>
-            {connected && <button disabled={busy} onClick={() => {
-              setBusy(true);
-              void disconnectFirebase().then(() => {
-                setConnected(false);
-                setCloudMessage("로그아웃했습니다. 이 기기의 기록은 유지됩니다.");
-              }).catch((e: unknown) => setCloudMessage(e instanceof Error ? e.message : "로그아웃하지 못했습니다.")).finally(() => setBusy(false));
-            }}>로그아웃</button>}
-          </div>
-        ) : <p className="help">Firebase 웹 앱 설정 후 사용할 수 있습니다.</p>}
-        {cloudMessage && <p className="feedback" role="status">{cloudMessage}</p>}
-      </section>
       <section className="settings-section">
         <h3>백업과 복원</h3>
         <p className="help">

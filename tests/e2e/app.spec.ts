@@ -16,16 +16,31 @@ test("상단 문구, 하단 날짜, 설정 항목을 요청한 위치에 표시�
   await expect(page.locator(".brand-caption")).toHaveText("작은 기록이 만드는 가벼운 하루");
   await expect(page.locator(".paper-footer p")).toHaveText(/\d{4}년 \d{1,2}월 \d{1,2}일 [월화수목금토일]요일/);
   await expect(page.locator(".paper-footer a")).toHaveCount(0);
-  await expect(page.locator(".app-header nav button")).toHaveCount(1);
+  await expect(page.locator(".app-header nav button")).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "로그인", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "설정", exact: true })).toHaveText("");
+  await page.setViewportSize({ width: 320, height: 850 });
+  expect(await page.locator(".account-button").evaluate((button) => {
+    const range = document.createRange();
+    range.selectNodeContents(button);
+    return range.getClientRects().length;
+  })).toBe(1);
   await expect(page.locator(".current-sort")).toBeVisible();
   await page.getByRole("button", { name: "설정", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "노트 설정" });
   await expect(dialog.getByRole("link", { name: "개인정보처리방침" })).toBeVisible();
   await expect(dialog.getByRole("link", { name: "서비스 약관" })).toBeVisible();
   await expect(dialog.getByText("완료된 할 일 표시")).toHaveCount(0);
+  await expect(dialog.getByText("Google 계정 동기화")).toHaveCount(0);
   await page.getByRole("button", { name: "닫기", exact: true }).click();
+  await page.getByRole("button", { name: "로그인", exact: true }).click();
+  const account = page.getByRole("dialog", { name: "Google 계정" });
+  await expect(account.getByRole("heading", { name: "Google 계정 동기화" })).toBeVisible();
+  await expect(account.getByRole("button", { name: "Google 계정으로 연결" })).toBeVisible();
+  await account.getByRole("button", { name: "닫기", exact: true }).click();
   await page.locator(".current-sort").click();
   await expect(page.getByRole("dialog", { name: "할 일 정렬" }).getByRole("button", { name: "완료한 일 표시 안함" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "제외하고 따로 배치" })).toHaveCSS("border-top-style", "solid");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 test("한 줄 제목과 화면 너비에 따른 행 배치", async ({ page }) => {
@@ -598,7 +613,7 @@ test("화살표와 좌우 스와이프로 사이드바 순서대로 페이지를
   await page.reload();
   await expect(page.locator(".current-page-name")).toHaveText("미분류");
 });
-test("완료한 일 전체 삭제는 확인 후 실행되고 진행 중인 일은 유지", async ({ page }) => {
+test("현재 목록의 완료한 일 삭제는 확인 후 실행되고 진행 중인 일은 유지", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "새 할 일 추가" }).click();
   await page.getByLabel("할 일 제목").fill("남길 일");
@@ -608,19 +623,45 @@ test("완료한 일 전체 삭제는 확인 후 실행되고 진행 중인 일�
   await page.getByLabel("완료한 일 완료", { exact: true }).check();
   await page.locator(".current-sort").click();
   await page.getByRole("button", { name: "완료한 일 표시 안함" }).click();
-  await page.getByRole("button", { name: "모든 페이지의 완료한 일 1개 삭제" }).click();
+  await page.getByRole("button", { name: "현재 페이지의 완료한 일 1개 삭제" }).click();
   const dialog = page.getByRole("dialog", { name: "완료한 일을 모두 삭제하시겠습니까?" });
   await expect(dialog).toContainText("1개");
   await dialog.getByRole("button", { name: "취소" }).click();
   await page.locator(".current-sort").click();
-  await page.getByRole("button", { name: "모든 페이지의 완료한 일 1개 삭제" }).click();
+  await page.getByRole("button", { name: "현재 페이지의 완료한 일 1개 삭제" }).click();
   await dialog.getByRole("button", { name: "모두 삭제" }).click();
   await expect(page.getByLabel("할 일 제목")).toHaveCount(1);
   await expect(page.getByLabel("할 일 제목")).toHaveValue("남길 일");
   await page.reload();
   await expect(page.getByLabel("할 일 제목")).toHaveCount(1);
   await page.locator(".current-sort").click();
-  await expect(page.getByRole("button", { name: "모든 페이지의 완료한 일 0개 삭제" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "현재 페이지의 완료한 일 0개 삭제" })).toBeDisabled();
+});
+test("현재 페이지의 완료 기록만 삭제하고 다른 페이지의 기록은 유지", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "새 할 일 추가" })).toBeEnabled();
+  for (const [name, title] of [["업무", "업무 완료"], ["집안일", "집안일 완료"]]) {
+    if (!(await page.locator(".page-sidebar").isVisible())) await page.getByRole("button", { name: "페이지 목록 열기" }).click();
+    await page.getByRole("button", { name: "페이지 추가" }).click();
+    const dialog = page.getByRole("dialog", { name: "새 페이지 만들기" });
+    await dialog.getByLabel("페이지 이름").fill(name);
+    await dialog.getByRole("button", { name: "만들기" }).click();
+    await page.getByRole("button", { name: "새 할 일 추가" }).click();
+    await page.getByLabel("할 일 제목").last().fill(title);
+    await page.getByLabel(`${title} 완료`, { exact: true }).check();
+  }
+  if (await page.locator(".page-sidebar").isVisible()) await page.getByRole("button", { name: "페이지 목록 닫기" }).last().click();
+  await page.getByRole("button", { name: "이전 페이지" }).click();
+  await expect(page.locator(".current-page-name")).toHaveText("업무");
+  await page.locator(".current-sort").click();
+  await expect(page.getByText("삭제 범위: 업무")).toBeVisible();
+  await page.getByRole("button", { name: "현재 페이지의 완료한 일 1개 삭제" }).click();
+  await expect(page.getByRole("dialog", { name: "완료한 일을 모두 삭제하시겠습니까?" })).toContainText("‘업무’ 목록");
+  await page.getByRole("button", { name: "모두 삭제" }).click();
+  await page.getByRole("button", { name: "다음 페이지" }).click();
+  await expect(page.getByLabel("할 일 제목")).toHaveValue("집안일 완료");
+  await page.reload();
+  await expect(page.getByLabel("할 일 제목")).toHaveValue("집안일 완료");
 });
 test("페이지 수정에서 손잡이로 순서를 바꾸고 재접속 후 유지", async ({ page, context }, testInfo) => {
   await page.goto("/");

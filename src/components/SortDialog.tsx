@@ -33,11 +33,13 @@ export function SortDialog({
   onClose,
   completedCount,
   onDeleteCompleted,
+  pageTitle,
 }: {
   settings: Settings;
   onClose: () => void;
   completedCount: number;
   onDeleteCompleted: () => void;
+  pageTitle: string;
 }) {
   const selected = settings.sortMode === "manual" ? null : settings.sortMode;
   return (
@@ -93,9 +95,10 @@ export function SortDialog({
       )}
       <p className="help">드래그하거나 할 일을 선택한 뒤 Shift+방향키로 순서를 바꿀 수 있습니다. 순서를 바꾸면 사용자 지정 정렬로 전환됩니다.</p>
       <div className="sort-section-title">완료한 기록 정리</div>
+      <p className="help">삭제 범위: {pageTitle}</p>
       <div className="button-pair">
         <button className="danger" disabled={!completedCount} onClick={onDeleteCompleted}>
-          모든 페이지의 완료한 일 {completedCount}개 삭제
+          현재 페이지의 완료한 일 {completedCount}개 삭제
         </button>
       </div>
     </Dialog>
