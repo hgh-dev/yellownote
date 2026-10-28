@@ -698,8 +698,15 @@ select {
 }
 .sort-criteria { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .sort-directions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.completion-options button:last-child { grid-column: 1 / -1; }
+.completion-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.completion-options button { min-width: 0; justify-content: center; padding: 8px 6px; gap: 3px; font-size: 12px; white-space: nowrap; }
+.completion-options svg { flex: 0 0 auto; }
 .sort-options button { gap: 4px; }
+@media (max-width: 380px) {
+  .completion-options { margin-inline: -4px; }
+  .completion-options button { padding: 8px 4px; gap: 2px; font-size: 10px; }
+  .completion-options svg { width: 12px; height: 12px; }
+}
 .settings-section {
   padding: 18px 0;
   border-top: 1px solid #cfbd863f;
