@@ -42,6 +42,11 @@ test("상단 문구, 하단 날짜, 설정 항목을 요청한 위치에 표시�
   const sort = page.getByRole("dialog", { name: "할 일 정렬" });
   const choices = sort.locator(".completion-options button");
   await expect(choices).toHaveText(["포함하여 정렬", "제외하고 정렬", "표시안함"]);
+  const buttonStyles = await sort.locator(".sort-options button").evaluateAll((buttons) => buttons.map((button) => {
+    const style = getComputedStyle(button);
+    return [style.justifyContent, style.textAlign, style.fontSize, style.paddingLeft].join("|");
+  }));
+  expect(new Set(buttonStyles).size).toBe(1);
   expect(await choices.evaluateAll((buttons) => new Set(buttons.map((button) => button.getBoundingClientRect().top)).size)).toBe(1);
   expect(await choices.evaluateAll((buttons) => buttons.every((button) => button.scrollWidth <= button.clientWidth))).toBe(true);
   await expect(sort.getByRole("button", { name: "제외하고 정렬" })).toHaveCSS("border-top-style", "solid");
