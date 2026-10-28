@@ -31,9 +31,13 @@ export function sortLabel(settings: Settings) {
 export function SortDialog({
   settings,
   onClose,
+  completedCount,
+  onDeleteCompleted,
 }: {
   settings: Settings;
   onClose: () => void;
+  completedCount: number;
+  onDeleteCompleted: () => void;
 }) {
   const selected = settings.sortMode === "manual" ? null : settings.sortMode;
   return (
@@ -88,6 +92,12 @@ export function SortDialog({
         <p className="help">현재 사용자 지정 정렬입니다. 정렬 기준을 선택하면 해당 순서로 표시됩니다.</p>
       )}
       <p className="help">드래그하거나 할 일을 선택한 뒤 Shift+방향키로 순서를 바꿀 수 있습니다. 순서를 바꾸면 사용자 지정 정렬로 전환됩니다.</p>
+      <div className="sort-section-title">완료한 기록 정리</div>
+      <div className="button-pair">
+        <button className="danger" disabled={!completedCount} onClick={onDeleteCompleted}>
+          모든 페이지의 완료한 일 {completedCount}개 삭제
+        </button>
+      </div>
     </Dialog>
   );
 }

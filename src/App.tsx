@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type TouchEvent } from "react";
 import {
   ArrowDownUp,
   Settings as SettingsIcon,
@@ -7,6 +7,8 @@ import {
   BookOpen,
   CloudOff,
   Menu,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   DndContext,
@@ -27,6 +29,7 @@ import {
   initialize,
   addTask,
   deleteTask,
+  deleteCompletedTasks,
   saveOrder,
   flush,
   updateTask,
@@ -52,6 +55,7 @@ export default function App() {
   const today = useToday(),
     [panel, setPanel] = useState<"sort" | "settings" | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null),
+    [deleteCompletedOpen, setDeleteCompletedOpen] = useState(false),
     [moveTaskId, setMoveTaskId] = useState<string | null>(null),
     [focusId, setFocusId] = useState<string | null>(null),
     [selectedId, setSelectedId] = useState<string | null>(null);
@@ -63,6 +67,7 @@ export default function App() {
   const [selectedPage, setSelectedPage] = useState<string | null>(() => {
     try { const saved = localStorage.getItem("yellow-note-page"); return saved === null ? "all" : saved || null; } catch { return "all"; }
   });
+  const swipeStart = useRef<{ x: number; y: number; time: number } | null>(null);
   const closeSidebar = useCallback(() => {
     setSidebarOpen(false);
     requestAnimationFrame(() => document.querySelector<HTMLElement>(".page-toggle")?.focus());
@@ -125,6 +130,29 @@ export default function App() {
   const visible = sortedTasks(scopedTasks, settings);
   const completed = scopedTasks.filter((t) => t.completed).length;
   const pageTitle = selectedPage === "all" ? "모든 할 일" : selectedPage === null ? "미분류" : pages.find((p) => p.id === selectedPage)?.name || "미분류";
+  const pageOrder: (string | null)[] = ["all", null, ...pages.filter((page) => !page.deletedAt)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id)).map((page) => page.id)];
+  const pageIndex = Math.max(0, pageOrder.indexOf(selectedPage));
+  const previousPage = pageIndex > 0 ? pageOrder[pageIndex - 1] : undefined;
+  const nextPage = pageIndex < pageOrder.length - 1 ? pageOrder[pageIndex + 1] : undefined;
+  function startSwipe(event: TouchEvent<HTMLDivElement>) {
+    swipeStart.current = null;
+    if (!ready || updating || sidebarOpen || event.touches.length !== 1 || document.querySelector("dialog[open]")) return;
+    if ((event.target as Element).closest("input, textarea, select, button, a, [contenteditable='true'], .drag-handle")) return;
+    swipeStart.current = { x: event.touches[0].clientX, y: event.touches[0].clientY, time: Date.now() };
+  }
+  function endSwipe(event: TouchEvent<HTMLDivElement>) {
+    const start = swipeStart.current;
+    swipeStart.current = null;
+    if (!start || sidebarOpen || document.querySelector("dialog[open]")) return;
+    const touch = event.changedTouches[0];
+    if (!touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) < 65 || Math.abs(dx) < Math.abs(dy) * 1.5 || Date.now() - start.time > 800) return;
+    const destination = dx < 0 ? nextPage : previousPage;
+    if (destination !== undefined) choosePage(destination);
+  }
   const movingTask = tasks.find((task) => task.id === moveTaskId);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -296,7 +324,7 @@ export default function App() {
     </SortableContext>
   );
   return (
-    <div className={`notebook ${sidebarOpen ? "sidebar-open" : ""}`}>
+    <div className={`notebook ${sidebarOpen ? "sidebar-open" : ""}`} onTouchStart={startSwipe} onTouchEnd={endSwipe} onTouchCancel={() => { swipeStart.current = null; }}>
       <header className="app-header">
         <div className="brand-group">
           <button className="page-toggle icon-button" aria-label="페이지 목록 열기" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(true)}><Menu size={22} /></button>
@@ -330,7 +358,11 @@ export default function App() {
             나의 할 일 <b>{scopedTasks.filter((t) => !t.completed).length}</b>
             <span className="completed-count">완료 {completed}</span>
           </span>
-          <strong className="current-page-name" title={pageTitle}>{pageTitle}</strong>
+          <div className="page-switcher">
+            <button aria-label="이전 페이지" title="이전 페이지" disabled={previousPage === undefined} onClick={() => { if (previousPage !== undefined) choosePage(previousPage); }}><ChevronLeft size={17} /></button>
+            <strong className="current-page-name" title={pageTitle}>{pageTitle}</strong>
+            <button aria-label="다음 페이지" title="다음 페이지" disabled={nextPage === undefined} onClick={() => { if (nextPage !== undefined) choosePage(nextPage); }}><ChevronRight size={17} /></button>
+          </div>
           <button className="current-sort" onClick={() => setPanel("sort")} disabled={!ready}>
             {sortLabel(settings)}
             <ArrowDownUp size={13} />
@@ -377,7 +409,7 @@ export default function App() {
               </h2>
               <p>
                 {scopedTasks.length
-                  ? "완료한 기록은 설정에서 다시 볼 수 있어요."
+                  ? "완료한 기록은 정렬 메뉴에서 다시 볼 수 있어요."
                   : "아래 + 버튼을 눌러 오늘의 할 일을 적어 보세요."}
               </p>
               <span className="empty-flourish">
@@ -424,7 +456,8 @@ export default function App() {
         </span>
       )}
       {panel === "sort" && (
-        <SortDialog settings={settings} onClose={() => setPanel(null)} />
+        <SortDialog settings={settings} completedCount={tasks.filter((task) => task.completed).length}
+          onDeleteCompleted={() => { setPanel(null); setDeleteCompletedOpen(true); }} onClose={() => setPanel(null)} />
       )}
       {sidebarOpen && <PageSidebar pages={pages} tasks={tasks} selected={selectedPage} onSelect={choosePage} onClose={closeSidebar} />}
       {panel === "settings" && (
@@ -460,6 +493,15 @@ export default function App() {
             >
               삭제
             </button>
+          </div>
+        </Dialog>
+      )}
+      {deleteCompletedOpen && (
+        <Dialog title="완료한 일을 모두 삭제하시겠습니까?" onClose={() => setDeleteCompletedOpen(false)}>
+          <p className="help">모든 페이지의 완료한 일 {tasks.filter((task) => task.completed).length}개와 메모가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.</p>
+          <div className="button-pair dialog-actions">
+            <button onClick={() => setDeleteCompletedOpen(false)}>취소</button>
+            <button className="danger" onClick={() => { deleteCompletedTasks(); setDeleteCompletedOpen(false); }}>모두 삭제</button>
           </div>
         </Dialog>
       )}

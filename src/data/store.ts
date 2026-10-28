@@ -193,6 +193,14 @@ export function deleteTask(id: string) {
   pending.set(id, null);
   schedule(true);
 }
+export function deleteCompletedTasks(): number {
+  const completed = state.tasks.filter((task) => task.completed);
+  if (!completed.length) return 0;
+  emit({ tasks: state.tasks.filter((task) => !task.completed) });
+  completed.forEach((task) => pending.set(task.id, null));
+  schedule(true);
+  return completed.length;
+}
 export function setSettings(patch: Partial<Settings>) {
   const settings = { ...state.settings, ...patch, updatedAt: new Date().toISOString() };
   emit({ settings });

@@ -69,6 +69,7 @@ select {
 .notebook {
   min-height: 100dvh;
   position: relative;
+  touch-action: pan-y pinch-zoom;
   background:
     linear-gradient(
       to right,
@@ -164,7 +165,11 @@ select {
   color: #82764e;
   font-size: 12px;
 }
-.current-page-name { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; height: 44px; max-width: min(40vw, 440px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 14px; font-weight: 600; color: #5f5638; }
+.page-switcher { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; max-width: min(48vw, 520px); height: 44px; }
+.page-switcher button { display: grid; place-items: center; flex: 0 0 24px; width: 24px; height: 36px; color: #786c48; border-radius: 4px; }
+.page-switcher button:disabled { opacity: .3; cursor: default; }
+.page-switcher button:not(:disabled):hover { background: #a1883012; }
+.current-page-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 17px; font-weight: 600; color: #5f5638; }
 .task-counts { white-space: nowrap; }
 .task-counts b { margin-left: 6px; font-weight: 500; }
 .current-sort {
@@ -1001,10 +1006,7 @@ textarea {
     gap: 0 4px;
   }
   .current-page-name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-size: 12px;
+    font-size: 14px;
   }
   .task-counts {
     grid-column: 1;
@@ -1032,8 +1034,8 @@ textarea {
     flex: 0 0 auto;
     min-width: 0;
     margin-left: 0;
-    padding-left: 4px;
-    gap: 4px;
+    padding-left: 2px;
+    gap: 2px;
   }
   .row-actions { margin-left: 2px; }
   .detail-divider { display: none; }
@@ -1042,11 +1044,11 @@ textarea {
   .date-display { display: none; }
   .date-icon { right: 5px; }
   .date-stack.has-date {
-    width: 48px;
-    grid-template-columns: 48px;
+    width: 40px;
+    grid-template-columns: 40px;
     grid-template-rows: 44px;
   }
-  .date-stack.has-date .date-control { width: 48px; grid-row: 1; }
+  .date-stack.has-date .date-control { width: 40px; grid-row: 1; }
   .date-stack.has-date .date-icon { display: none; }
   .date-stack.has-date .d-day {
     grid-row: 1;

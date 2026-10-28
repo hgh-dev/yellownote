@@ -419,6 +419,7 @@ test("마우스 드래그 및 320·768·1440px 화면 검증", async ({
   await page.getByLabel("보완사항 전달 완료", { exact: true }).check();
   for (const width of [320, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
+    if (width === 320) expect(await page.locator(".date-stack.has-date").first().evaluate((element) => element.getBoundingClientRect().width)).toBeLessThanOrEqual(40);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -549,6 +550,77 @@ test("페이지 이름은 화면의 정확한 중앙에 표시", async ({ page }
   await expect(heading).toHaveText("미분류");
   const box = await heading.boundingBox();
   expect(Math.abs(box!.x + box!.width / 2 - 393 / 2)).toBeLessThanOrEqual(1);
+  await page.getByRole("button", { name: "페이지 목록 열기" }).click();
+  await page.getByRole("button", { name: "페이지 추가" }).click();
+  await page.getByRole("dialog", { name: "새 페이지 만들기" }).getByLabel("페이지 이름").fill("길게 작성한 페이지 이름이 화면 밖으로 넘치지 않는지 확인");
+  await page.getByRole("dialog", { name: "새 페이지 만들기" }).getByRole("button", { name: "만들기" }).click();
+  await page.setViewportSize({ width: 320, height: 850 });
+  const longBox = await heading.boundingBox();
+  expect(Math.abs(longBox!.x + longBox!.width / 2 - 160)).toBeLessThanOrEqual(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+test("화살표와 좌우 스와이프로 사이드바 순서대로 페이지를 이동", async ({ page, context }, testInfo) => {
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "새 할 일 추가" })).toBeEnabled();
+  for (const name of ["업무", "공부"]) {
+    if (!(await page.locator(".page-sidebar").isVisible())) await page.getByRole("button", { name: "페이지 목록 열기" }).click();
+    await page.getByRole("button", { name: "페이지 추가" }).click();
+    const dialog = page.getByRole("dialog", { name: "새 페이지 만들기" });
+    await dialog.getByLabel("페이지 이름").fill(name);
+    await dialog.getByRole("button", { name: "만들기" }).click();
+  }
+  if (await page.locator(".page-sidebar").isVisible()) await page.getByRole("button", { name: "페이지 목록 닫기" }).last().click();
+  await page.getByRole("button", { name: "이전 페이지" }).click();
+  await expect(page.locator(".current-page-name")).toHaveText("업무");
+  await page.getByRole("button", { name: "이전 페이지" }).click();
+  await expect(page.locator(".current-page-name")).toHaveText("미분류");
+  await page.getByRole("button", { name: "이전 페이지" }).click();
+  await expect(page.locator(".current-page-name")).toHaveText("모든 할 일");
+  await expect(page.getByRole("button", { name: "이전 페이지" })).toBeDisabled();
+  if (testInfo.project.name === "mobile") {
+    const cdp = await context.newCDPSession(page);
+    const swipe = async (from: number, to: number) => {
+      const y = 260;
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: from, y }] });
+      for (let i = 1; i <= 8; i++) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: from + (to - from) * i / 8, y }] });
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    };
+    await swipe(300, 60);
+    await expect(page.locator(".current-page-name")).toHaveText("미분류");
+    await swipe(300, 60);
+    await expect(page.locator(".current-page-name")).toHaveText("업무");
+    await swipe(100, 330);
+    await expect(page.locator(".current-page-name")).toHaveText("미분류");
+  } else {
+    await page.getByRole("button", { name: "다음 페이지" }).click();
+    await expect(page.locator(".current-page-name")).toHaveText("미분류");
+  }
+  await page.reload();
+  await expect(page.locator(".current-page-name")).toHaveText("미분류");
+});
+test("완료한 일 전체 삭제는 확인 후 실행되고 진행 중인 일은 유지", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "새 할 일 추가" }).click();
+  await page.getByLabel("할 일 제목").fill("남길 일");
+  await page.waitForTimeout(510);
+  await page.getByRole("button", { name: "새 할 일 추가" }).click();
+  await page.getByLabel("할 일 제목").last().fill("완료한 일");
+  await page.getByLabel("완료한 일 완료", { exact: true }).check();
+  await page.locator(".current-sort").click();
+  await page.getByRole("button", { name: "완료한 일 표시 안함" }).click();
+  await page.getByRole("button", { name: "모든 페이지의 완료한 일 1개 삭제" }).click();
+  const dialog = page.getByRole("dialog", { name: "완료한 일을 모두 삭제하시겠습니까?" });
+  await expect(dialog).toContainText("1개");
+  await dialog.getByRole("button", { name: "취소" }).click();
+  await page.locator(".current-sort").click();
+  await page.getByRole("button", { name: "모든 페이지의 완료한 일 1개 삭제" }).click();
+  await dialog.getByRole("button", { name: "모두 삭제" }).click();
+  await expect(page.getByLabel("할 일 제목")).toHaveCount(1);
+  await expect(page.getByLabel("할 일 제목")).toHaveValue("남길 일");
+  await page.reload();
+  await expect(page.getByLabel("할 일 제목")).toHaveCount(1);
+  await page.locator(".current-sort").click();
+  await expect(page.getByRole("button", { name: "모든 페이지의 완료한 일 0개 삭제" })).toBeDisabled();
 });
 test("페이지 수정에서 손잡이로 순서를 바꾸고 재접속 후 유지", async ({ page, context }, testInfo) => {
   await page.goto("/");
