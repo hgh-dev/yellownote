@@ -155,6 +155,19 @@ export default function App() {
       </div>
     </div>;
   };
+  function animateToPage(destination: string | null | undefined, direction: -1 | 1) {
+    if (destination === undefined || swipeLocked.current) return;
+    swipeLocked.current = true;
+    setSwipeAnimating(true);
+    setSwipeOffset(direction * window.innerWidth);
+    swipeTimer.current = setTimeout(() => {
+      choosePage(destination);
+      setSwipeAnimating(false);
+      setSwipeOffset(0);
+      swipeLocked.current = false;
+      swipeTimer.current = null;
+    }, 240);
+  }
   function resetSwipe() {
     swipeStart.current = null;
     setSwipeAnimating(true);
@@ -190,16 +203,7 @@ export default function App() {
     const shouldChange = destination !== undefined && Math.abs(dx) > Math.abs(dy) * 1.2 &&
       (Math.abs(dx) > window.innerWidth * .25 || (Math.abs(dx) > 45 && Date.now() - start.time < 350));
     if (!shouldChange) { resetSwipe(); return; }
-    swipeLocked.current = true;
-    setSwipeAnimating(true);
-    setSwipeOffset(dx < 0 ? -window.innerWidth : window.innerWidth);
-    swipeTimer.current = setTimeout(() => {
-      choosePage(destination);
-      setSwipeAnimating(false);
-      setSwipeOffset(0);
-      swipeLocked.current = false;
-      swipeTimer.current = null;
-    }, 240);
+    animateToPage(destination, dx < 0 ? -1 : 1);
   }
   const movingTask = tasks.find((task) => task.id === moveTaskId);
   const sensors = useSensors(
@@ -415,9 +419,9 @@ export default function App() {
             <span className="completed-count">완료 {completed}</span>
           </span>
           <div className="page-switcher">
-            <button aria-label="이전 페이지" title="이전 페이지" disabled={previousPage === undefined} onClick={() => { if (previousPage !== undefined) choosePage(previousPage); }}><ChevronLeft size={17} /></button>
+            <button aria-label="이전 페이지" title="이전 페이지" disabled={previousPage === undefined} onClick={() => animateToPage(previousPage, 1)}><ChevronLeft size={17} /></button>
             <strong className="current-page-name" title={pageTitle}>{pageTitle}</strong>
-            <button aria-label="다음 페이지" title="다음 페이지" disabled={nextPage === undefined} onClick={() => { if (nextPage !== undefined) choosePage(nextPage); }}><ChevronRight size={17} /></button>
+            <button aria-label="다음 페이지" title="다음 페이지" disabled={nextPage === undefined} onClick={() => animateToPage(nextPage, -1)}><ChevronRight size={17} /></button>
           </div>
           <button className="current-sort" onClick={() => setPanel("sort")} disabled={!ready}>
             {sortLabel(settings)}

@@ -618,6 +618,8 @@ test("화살표와 좌우 스와이프로 사이드바 순서대로 페이지를
   }
   if (await page.locator(".page-sidebar").isVisible()) await page.getByRole("button", { name: "페이지 목록 닫기" }).last().click();
   await page.getByRole("button", { name: "이전 페이지" }).click();
+  await expect(page.locator(".swipe-track")).toHaveClass(/swipe-animating/);
+  await expect(page.locator(".swipe-track")).toHaveCSS("transform", /matrix\(1, 0, 0, 1, [1-9]/);
   await expect(page.locator(".current-page-name")).toHaveText("업무");
   await page.getByRole("button", { name: "이전 페이지" }).click();
   await expect(page.locator(".current-page-name")).toHaveText("미분류");
