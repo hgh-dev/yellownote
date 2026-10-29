@@ -626,14 +626,26 @@ test("화살표와 좌우 스와이프로 사이드바 순서대로 페이지를
   await expect(page.getByRole("button", { name: "이전 페이지" })).toBeDisabled();
   if (testInfo.project.name === "mobile") {
     const cdp = await context.newCDPSession(page);
+    const track = page.locator(".swipe-track");
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: 100, y: 260 }] });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: 230, y: 260 }] });
+    await expect.poll(() => track.evaluate((element) => Number.parseFloat(getComputedStyle(element).transform.split(",")[4]))).toBeGreaterThan(0);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await expect(page.locator(".current-page-name")).toHaveText("모든 할 일");
+    await expect.poll(() => track.evaluate((element) => getComputedStyle(element).transform)).toBe("matrix(1, 0, 0, 1, 0, 0)");
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: 300, y: 260 }] });
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: 180, y: 260 }] });
+    await expect.poll(() => track.evaluate((element) => Number.parseFloat(getComputedStyle(element).transform.split(",")[4]))).toBeLessThan(-80);
+    await expect(page.locator(".swipe-next .swipe-preview-heading")).toHaveText("미분류");
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await expect(page.locator(".current-page-name")).toHaveText("미분류");
+    await expect.poll(() => track.evaluate((element) => getComputedStyle(element).transform)).toBe("matrix(1, 0, 0, 1, 0, 0)");
     const swipe = async (from: number, to: number) => {
       const y = 260;
       await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: from, y }] });
       for (let i = 1; i <= 8; i++) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: from + (to - from) * i / 8, y }] });
       await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     };
-    await swipe(300, 60);
-    await expect(page.locator(".current-page-name")).toHaveText("미분류");
     await swipe(300, 60);
     await expect(page.locator(".current-page-name")).toHaveText("업무");
     await swipe(100, 330);

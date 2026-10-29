@@ -69,6 +69,11 @@ export default function App() {
     try { const saved = localStorage.getItem("yellow-note-page"); return saved === null ? "all" : saved || null; } catch { return "all"; }
   });
   const swipeStart = useRef<{ x: number; y: number; time: number } | null>(null);
+  const swipeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [swipeAnimating, setSwipeAnimating] = useState(false);
+  const swipeLocked = useRef(false);
+  useEffect(() => () => { if (swipeTimer.current) clearTimeout(swipeTimer.current); }, []);
   const closeSidebar = useCallback(() => {
     setSidebarOpen(false);
     requestAnimationFrame(() => document.querySelector<HTMLElement>(".page-toggle")?.focus());
@@ -136,23 +141,65 @@ export default function App() {
   const pageIndex = Math.max(0, pageOrder.indexOf(selectedPage));
   const previousPage = pageIndex > 0 ? pageOrder[pageIndex - 1] : undefined;
   const nextPage = pageIndex < pageOrder.length - 1 ? pageOrder[pageIndex + 1] : undefined;
+  const titleForPage = (id: string | null) => id === "all" ? "모든 할 일" : id === null ? "미분류" : pages.find((page) => page.id === id)?.name || "미분류";
+  const previewPage = (id: string | null | undefined) => {
+    if (id === undefined) return null;
+    const previewTasks = sortedTasks(id === "all" ? tasks : tasks.filter((task) => task.pageId === id), settings);
+    return <div className="swipe-preview" aria-hidden="true">
+      <div className="swipe-preview-heading">{titleForPage(id)}</div>
+      <div className="swipe-preview-tasks">
+        {previewTasks.map((task) => <div className={`swipe-preview-row ${task.completed ? "completed" : ""}`} key={task.id}>
+          <span className="swipe-preview-check" />
+          <span className="swipe-preview-title">{task.title}</span>
+        </div>)}
+      </div>
+    </div>;
+  };
+  function resetSwipe() {
+    swipeStart.current = null;
+    setSwipeAnimating(true);
+    setSwipeOffset(0);
+    swipeTimer.current = setTimeout(() => { setSwipeAnimating(false); swipeLocked.current = false; swipeTimer.current = null; }, 240);
+  }
   function startSwipe(event: TouchEvent<HTMLDivElement>) {
     swipeStart.current = null;
-    if (!ready || updating || sidebarOpen || event.touches.length !== 1 || document.querySelector("dialog[open]")) return;
+    if (!ready || updating || sidebarOpen || swipeLocked.current || event.touches.length !== 1 || document.querySelector("dialog[open]")) return;
     if ((event.target as Element).closest("input, textarea, select, button, a, [contenteditable='true'], .drag-handle")) return;
     swipeStart.current = { x: event.touches[0].clientX, y: event.touches[0].clientY, time: Date.now() };
+  }
+  function moveSwipe(event: TouchEvent<HTMLDivElement>) {
+    const start = swipeStart.current;
+    if (!start || event.touches.length !== 1) return;
+    const dx = event.touches[0].clientX - start.x;
+    const dy = event.touches[0].clientY - start.y;
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) { swipeStart.current = null; return; }
+    if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+    const destination = dx < 0 ? nextPage : previousPage;
+    const width = window.innerWidth;
+    setSwipeOffset(destination === undefined ? Math.sign(dx) * Math.min(Math.abs(dx) * .22, 48) : Math.max(-width, Math.min(width, dx)));
   }
   function endSwipe(event: TouchEvent<HTMLDivElement>) {
     const start = swipeStart.current;
     swipeStart.current = null;
     if (!start || sidebarOpen || document.querySelector("dialog[open]")) return;
     const touch = event.changedTouches[0];
-    if (!touch) return;
+    if (!touch) { resetSwipe(); return; }
     const dx = touch.clientX - start.x;
     const dy = touch.clientY - start.y;
-    if (Math.abs(dx) < 65 || Math.abs(dx) < Math.abs(dy) * 1.5 || Date.now() - start.time > 800) return;
     const destination = dx < 0 ? nextPage : previousPage;
-    if (destination !== undefined) choosePage(destination);
+    const shouldChange = destination !== undefined && Math.abs(dx) > Math.abs(dy) * 1.2 &&
+      (Math.abs(dx) > window.innerWidth * .25 || (Math.abs(dx) > 45 && Date.now() - start.time < 350));
+    if (!shouldChange) { resetSwipe(); return; }
+    swipeLocked.current = true;
+    setSwipeAnimating(true);
+    setSwipeOffset(dx < 0 ? -window.innerWidth : window.innerWidth);
+    swipeTimer.current = setTimeout(() => {
+      choosePage(destination);
+      setSwipeAnimating(false);
+      setSwipeOffset(0);
+      swipeLocked.current = false;
+      swipeTimer.current = null;
+    }, 240);
   }
   const movingTask = tasks.find((task) => task.id === moveTaskId);
   const sensors = useSensors(
@@ -325,7 +372,7 @@ export default function App() {
     </SortableContext>
   );
   return (
-    <div className={`notebook ${sidebarOpen ? "sidebar-open" : ""}`} onTouchStart={startSwipe} onTouchEnd={endSwipe} onTouchCancel={() => { swipeStart.current = null; }}>
+    <div className={`notebook ${sidebarOpen ? "sidebar-open" : ""}`} onTouchStart={startSwipe} onTouchMove={moveSwipe} onTouchEnd={endSwipe} onTouchCancel={resetSwipe}>
       <header className="app-header">
         <div className="brand-group">
           <button className="page-toggle icon-button" aria-label="페이지 목록 열기" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(true)}><Menu size={22} /></button>
@@ -379,6 +426,8 @@ export default function App() {
 
         </div>
       </header>
+      <div className="swipe-viewport"><div className={`swipe-track ${swipeAnimating ? "swipe-animating" : ""}`} style={{ transform: `translate3d(${swipeOffset}px, 0, 0)` }}>
+      {previousPage !== undefined && <div className="swipe-adjacent swipe-previous">{previewPage(previousPage)}</div>}
       <main inert={updating}>
         <section
           className="task-section"
@@ -435,6 +484,8 @@ export default function App() {
           </span>
         </footer>
       </main>
+      {nextPage !== undefined && <div className="swipe-adjacent swipe-next">{previewPage(nextPage)}</div>}
+      </div></div>
       <div className="floating-add">
         <button
           aria-label="새 할 일 추가"

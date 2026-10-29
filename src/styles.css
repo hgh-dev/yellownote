@@ -94,6 +94,62 @@ select {
     0 0;
   padding-bottom: 176px;
 }
+.swipe-viewport {
+  position: relative;
+  overflow-x: clip;
+  overflow-y: visible;
+}
+.swipe-track {
+  position: relative;
+  will-change: transform;
+}
+.swipe-track.swipe-animating {
+  transition: transform 240ms ease-out;
+}
+.swipe-adjacent {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--paper);
+  background-image: linear-gradient(to right, transparent calc(var(--margin) - 7px), #d48d6e80 calc(var(--margin) - 7px), #d48d6e80 calc(var(--margin) - 5px), transparent calc(var(--margin) - 5px), transparent var(--margin), #d48d6e60 var(--margin), #d48d6e60 calc(var(--margin) + 2px), transparent calc(var(--margin) + 2px)), repeating-linear-gradient(to bottom, transparent 0, transparent 43px, var(--rule) 43px, var(--rule) 44px);
+}
+.swipe-previous { right: 100%; }
+.swipe-next { left: 100%; }
+.swipe-preview-heading {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 600;
+  color: #5f5638;
+}
+.swipe-preview-tasks {
+  margin-left: calc(var(--margin) + 14px);
+  margin-right: 12px;
+}
+.swipe-preview-row {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  position: relative;
+  font-size: 17px;
+  white-space: nowrap;
+}
+.swipe-preview-check {
+  position: absolute;
+  left: -48px;
+  width: 19px;
+  height: 19px;
+  border: 1.4px solid #9b8a52;
+  border-radius: 3px;
+}
+.swipe-preview-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.swipe-preview-row.completed .swipe-preview-title { color: #8a8873; text-decoration: line-through #c76051; }
+@media (prefers-reduced-motion: reduce) {
+  .swipe-track.swipe-animating { transition-duration: 1ms; }
+}
 .app-header {
   min-height: 132px;
   display: grid;
@@ -1024,7 +1080,7 @@ textarea {
 .page-dialog-form p { margin: 8px 0 0; color: #a74236; font-size: 12px; }
 @media (min-width: 900px) {
   .page-backdrop { display: none; }
-  .notebook.sidebar-open > .app-header, .notebook.sidebar-open > main { margin-left: 280px; }
+  .notebook.sidebar-open > .app-header, .notebook.sidebar-open > .swipe-viewport { margin-left: 280px; }
   .notebook.sidebar-open .floating-add { left: calc(50% + 140px); }
   .page-sidebar { box-shadow: none; }
 }
